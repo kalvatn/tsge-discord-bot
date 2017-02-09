@@ -1,0 +1,14 @@
+#!/bin/bash
+
+
+cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+
+git pull
+npm install
+
+FOREVER_UID="tsge-discord_bot"
+# forever list
+forever stop "$FOREVER_UID"
+
+#sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 80 -j REDIRECT --to-port 8080
+NODE_ENV=production forever start --uid "$FOREVER_UID" --minUptime 10000 --spinSleepTime 5000 -a -l forever.log -o out.log -e err.log bot.js
