@@ -43,32 +43,17 @@ bot.on('disconnect', function(error, error_code) {
 });
 
 if (DEBUG) {
-  handle_message('kalvatn', 1, 1, '!lastfm chauney', null);
-  handle_message('kalvatn', 1, 1, '!xkcd 1', null);
-  handle_message('kalvatn', 1, 1, '!xkcd', null);
+  // handle_message('kalvatn', 1, 1, '!lastfm chauney', null);
+  // handle_message('kalvatn', 1, 1, '!xkcd 1', null);
+  // handle_message('kalvatn', 1, 1, '!xkcd', null);
   handle_message('kalvatn', 1, 1, '!tts hello world', null);
-  handle_message('kalvatn', 1, 1, '!lastfm chauney nowplaying', null);
-  handle_message('kalvatn', 1, 1, '!lastfm chauney topalbums', null);
-  handle_message('kalvatn', 1, 1, '!lastfm chauney toptracks', null);
+  // handle_message('kalvatn', 1, 1, '!lastfm chauney nowplaying', null);
+  // handle_message('kalvatn', 1, 1, '!lastfm chauney topalbums', null);
+  // handle_message('kalvatn', 1, 1, '!lastfm chauney toptracks', null);
 }
 
-function handle_message(user, user_id, channel_id, message) {
-  if (user_id == bot.id) {
-    return;
-  }
-
-  var messageSplit = message.split(' ');
-  if (!messageSplit && messageSplit.length <= 0) {
-    return;
-  }
-
-  if (COMMAND_PREFIXES.indexOf(messageSplit[0].charAt(0)) < 0) {
-    return;
-  }
-
-  console.info(`received command from user ${user_id} (${user}) in channel ${channel_id} : '${message}'`);
-  var command = messageSplit[0].substr(1, messageSplit[0].length);
-  var args = messageSplit.slice(1, messageSplit.length);
+function handle_command(user, user_id, channel_id, command, args) {
+  console.info(`user ${user_id} (${user}) in channel ${channel_id} issued command : ${command}, args : ${args}`);
   switch (command) {
     case 'tts':
       send_text_message(channel_id, args.join(' '), true);
@@ -96,6 +81,27 @@ function handle_message(user, user_id, channel_id, message) {
       send_help_message(user_id);
       break;
   }
+}
+
+function handle_message(user, user_id, channel_id, message) {
+  if (user_id == bot.id) {
+    return;
+  }
+
+  var messageSplit = message.split(' ');
+  if (!messageSplit && messageSplit.length <= 0) {
+    return;
+  }
+
+  if (COMMAND_PREFIXES.indexOf(messageSplit[0].charAt(0)) > -1) {
+    var command = messageSplit[0].substr(1, messageSplit[0].length);
+    var args = messageSplit.slice(1, messageSplit.length);
+    handle_command(user, user_id, channel_id, command, args);
+  } else {
+
+    // handle stats
+  }
+
 }
 
 function send_help_message(discord_id) {
