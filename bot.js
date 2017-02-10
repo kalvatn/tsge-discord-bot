@@ -21,6 +21,8 @@ const COMMAND_PREFIXES = [ '!', '?' ];
 const DEBUG = false;
 
 
+const CHANNEL_STATS = {};
+
 
 
 console.info('creating discord client');
@@ -47,6 +49,11 @@ if (DEBUG) {
   // handle_message('kalvatn', 1, 1, '!xkcd 1', null);
   // handle_message('kalvatn', 1, 1, '!xkcd', null);
   handle_message('kalvatn', 1, 1, '!tts hello world', null);
+  handle_message('kalvatn', 1, 1, 'hello world', null);
+  handle_message('kalvatn', 1, 1, 'hello world', null);
+  handle_message('kalvatn', 1, 1, 'fuck off', null);
+  handle_message('kalvatn', 1, 1, 'lol i haz cheezebrgrz wit catz hello world fuck off #ignore this shit motherfucker', null);
+  handle_message('kalvatn', 1, 1, '!stats', null);
   // handle_message('kalvatn', 1, 1, '!lastfm chauney nowplaying', null);
   // handle_message('kalvatn', 1, 1, '!lastfm chauney topalbums', null);
   // handle_message('kalvatn', 1, 1, '!lastfm chauney toptracks', null);
@@ -75,12 +82,78 @@ function handle_command(user, user_id, channel_id, command, args) {
         send_text_message(channel_id, error);
       });
       break;
+    case 'stats':
+      stats(channel_id, user_id, (response) => {
+        send_text_message(channel_id, response);
+      }, (error) => {
+        send_text_message(channel_id, error);
+      });
+      break;
     case 'help':
     case 'commands':
     default:
       send_help_message(user_id);
       break;
   }
+}
+
+
+
+function update_stats(channel_id, user_id, message) {
+  if (!CHANNEL_STATS[channel_id]) {
+    // console.log(`creating stats for channel ${channel_id}`);
+    CHANNEL_STATS[channel_id] = { }
+  }
+
+  if (!CHANNEL_STATS[channel_id][user_id]) {
+    // console.log(`creating stats for user ${user_id} in channel ${channel_id}`);
+    CHANNEL_STATS[channel_id][user_id] = {
+      word_counts : {},
+      word_count : 0
+    }
+  }
+
+  var user_stats = CHANNEL_STATS[channel_id][user_id];
+  message.split(' ').forEach((w) => {
+    if (!user_stats.word_counts[w]) {
+      user_stats.word_counts[w] = 0
+    }
+    user_stats.word_counts[w] += 1
+    user_stats.word_count += 1;
+  });
+  // console.log(`words for user ${user_id} in channel ${channel_id}`);
+  // for (key in user_stats.word_counts) {
+  //   console.log(`${key} : ${user_stats.word_counts[key]}`);
+  // }
+
+  // console.log(user_stats);
+}
+
+function stats(channel_id, user_id, callback, error_callback) {
+  if (!CHANNEL_STATS[channel_id]) {
+    error_callback(`no stats recorded for channel ${channel_id}`);
+    return;
+  }
+  if (!CHANNEL_STATS[channel_id][user_id]) {
+    error_callback(`no stats recorded for user ${user_id} in channel ${channel_id}`);
+    return;
+  }
+
+  var user_stats = CHANNEL_STATS[channel_id][user_id];
+  var user_word_counts = user_stats.word_counts;
+  var total_word_count = 0;
+  for (key in user_word_counts) {
+    total_word_count += user_word_counts[key];
+  }
+  var top_three_words = Object.keys(user_word_counts).sort((a, b) => {
+    return user_word_counts[b] - user_word_counts[a];
+  }).slice(0, 3);
+  var top_word_stats = [];
+  top_three_words.forEach((w) => {
+    top_word_stats.push(`${w} (${user_word_counts[w]})`);
+  });
+  var response = `word count : ${total_word_count}, top words : ${top_word_stats.join(', ')}`;
+  callback(response);
 }
 
 function handle_message(user, user_id, channel_id, message) {
@@ -98,8 +171,8 @@ function handle_message(user, user_id, channel_id, message) {
     var args = messageSplit.slice(1, messageSplit.length);
     handle_command(user, user_id, channel_id, command, args);
   } else {
-
-    // handle stats
+    // update stats
+    update_stats(channel_id, user_id, message);
   }
 
 }
