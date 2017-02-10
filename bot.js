@@ -8,8 +8,8 @@ var request = require('request-promise');
 
 const DISCORD_BOT_TOKEN = '';
 
-const LAST_FM_API_KEY = '';
-const LASTFM_BASE_API_URL = 'http://ws.audioscrobbler.com/2.0/?api_key=' + LAST_FM_API_KEY + '&format=json'
+const LASTFM_API_KEY = '';
+const LASTFM_BASE_API_URL = 'http://ws.audioscrobbler.com/2.0/?api_key=' + LASTFM_API_KEY + '&format=json'
 
 const LASTFM_METHODS = {
   'nowplaying' : 'user.getRecentTracks',
@@ -19,6 +19,8 @@ const LASTFM_METHODS = {
 
 const COMMAND_PREFIXES = [ '!', '?' ];
 const DEBUG = false;
+
+
 
 
 console.info('creating discord client');
