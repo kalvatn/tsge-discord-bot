@@ -37,8 +37,8 @@ db.serialize(() => {
     word_id INTEGER,
     count INTEGER DEFAULT 1,
     PRIMARY KEY (user_id, word_id),
-    FOREIGN KEY (user_id) REFERENCES user (id) ON UPDATE CASCADE,
-    FOREIGN KEY (word_id) REFERENCES word (id) ON UPDATE CASCADE
+    FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (word_id) REFERENCES word (id) ON DELETE CASCADE ON UPDATE CASCADE
   )`);
 
   db.run(`CREATE TABLE IF NOT EXISTS user_link (
@@ -46,8 +46,8 @@ db.serialize(() => {
     link_id INTEGER,
     count INTEGER DEFAULT 1,
     PRIMARY KEY (user_id, link_id),
-    FOREIGN KEY (user_id) REFERENCES user (id) ON UPDATE CASCADE,
-    FOREIGN KEY (link_id) REFERENCES link (id) ON UPDATE CASCADE
+    FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (link_id) REFERENCES link (id) ON DELETE CASCADE ON UPDATE CASCADE
   )`);
 
   db.run(`CREATE TABLE IF NOT EXISTS user_channel_message (
@@ -172,7 +172,7 @@ db.serialize(() => {
   s.finalize();
 
   console.log('inserting user_channel_stats test values');
-  s = db.prepare('INSERT OR IGNORE INTO user_channel_stats VALUES (?, ?, ?, ?)');
+  s = db.prepare('INSERT OR REPLACE INTO user_channel_stats VALUES (?, ?, ?, ?)');
   s.run(1, 1, 1, 100);
   s.run(1, 1, 2, 10);
   s.run(1, 1, 3, 500);
@@ -190,31 +190,34 @@ db.serialize(() => {
 
   var queries = [];
 
+  queries.push(`SELECT * FROM user`);
+  queries.push(`SELECT * FROM channel`);
+  queries.push(`SELECT * FROM stat_type`);
   queries.push(`SELECT * FROM word`);
   queries.push(`SELECT * FROM link`);
   queries.push(`SELECT * FROM user_link ul JOIN link l on l.id = ul.link_id`);
   queries.push(`SELECT * FROM user_word uw JOIN word w on w.id = uw.word_id`);
 
-  // queries.push(`
-  // SELECT
-  //   u.id AS user_id, u.username AS user_username
-  //   , c.id AS channel_id, c.name AS channel_name
-  //   , ucm.contents
-  // FROM user u
-  //   JOIN user_channel_message ucm ON ucm.user_id = u.id
-  //   JOIN channel c ON c.id = ucm.channel_id
-  // `);
+  queries.push(`
+  SELECT
+    u.id AS user_id, u.username AS user_username
+    , c.id AS channel_id, c.name AS channel_name
+    , ucm.contents
+  FROM user u
+    JOIN user_channel_message ucm ON ucm.user_id = u.id
+    JOIN channel c ON c.id = ucm.channel_id
+  `);
 
-  // queries.push(`
-  // SELECT
-  //   u.id AS user_id, u.username AS user_username
-  //   , c.id AS channel_id, c.name AS channel_name
-  //   , st.name AS stat_type_name, st.value_type as stat_type_value_type, ucs.value AS stat_value
-  // FROM user u
-  //   JOIN user_channel_stats ucs ON ucs.user_id = u.id
-  //   JOIN stat_type st ON st.id = ucs.stat_type_id
-  //   JOIN channel c ON c.id = ucs.channel_id
-  // `);
+  queries.push(`
+  SELECT
+    u.id AS user_id, u.username AS user_username
+    , c.id AS channel_id, c.name AS channel_name
+    , st.name AS stat_type_name, st.value_type as stat_type_value_type, ucs.value AS stat_value
+  FROM user u
+    JOIN user_channel_stats ucs ON ucs.user_id = u.id
+    JOIN stat_type st ON st.id = ucs.stat_type_id
+    JOIN channel c ON c.id = ucs.channel_id
+  `);
 
   queries.forEach((q) => {
     db.all(q, (error, rows) => {
