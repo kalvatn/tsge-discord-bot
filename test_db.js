@@ -1,6 +1,7 @@
 var sqlite = require('sqlite3').verbose();
 
-var db = new sqlite.Database(':memory:');
+// var db = new sqlite.Database(':memory:');
+var db = new sqlite.Database('discord_tsge.sqlite');
 
 db.serialize(() => {
 
@@ -22,14 +23,12 @@ db.serialize(() => {
 
   db.run(`CREATE TABLE IF NOT EXISTS word (
     id INTEGER PRIMARY KEY,
-    word TEXT NOT NULL UNIQUE,
-    times_used INTEGER DEFAULT 1
+    word TEXT NOT NULL UNIQUE
   )`);
 
   db.run(`CREATE TABLE IF NOT EXISTS link (
     id INTEGER PRIMARY KEY,
-    url TEXT NOT NULL UNIQUE,
-    repost_count INTEGER DEFAULT 1
+    url TEXT NOT NULL UNIQUE
   )`);
 
 
@@ -38,8 +37,8 @@ db.serialize(() => {
     word_id INTEGER,
     count INTEGER DEFAULT 1,
     PRIMARY KEY (user_id, word_id),
-    FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (word_id) REFERENCES word (id) ON DELETE CASCADE ON UPDATE CASCADE
+    FOREIGN KEY (user_id) REFERENCES user (id) ON UPDATE CASCADE,
+    FOREIGN KEY (word_id) REFERENCES word (id) ON UPDATE CASCADE
   )`);
 
   db.run(`CREATE TABLE IF NOT EXISTS user_link (
@@ -47,8 +46,8 @@ db.serialize(() => {
     link_id INTEGER,
     count INTEGER DEFAULT 1,
     PRIMARY KEY (user_id, link_id),
-    FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (link_id) REFERENCES link (id) ON DELETE CASCADE ON UPDATE CASCADE
+    FOREIGN KEY (user_id) REFERENCES user (id) ON UPDATE CASCADE,
+    FOREIGN KEY (link_id) REFERENCES link (id) ON UPDATE CASCADE
   )`);
 
   db.run(`CREATE TABLE IF NOT EXISTS user_channel_message (
@@ -76,7 +75,7 @@ db.serialize(() => {
   var s;
 
   console.log('inserting user test values');
-  s = db.prepare('INSERT INTO user VALUES (?, ?)');
+  s = db.prepare('INSERT OR IGNORE INTO user VALUES (?, ?)');
   s.run(1, 'kalvatn');
   s.run(2, 'redrome');
   s.run(3, 'dagolap');
@@ -84,14 +83,14 @@ db.serialize(() => {
 
 
   console.log('inserting channel test values');
-  s = db.prepare('INSERT INTO channel VALUES (?, ?)');
+  s = db.prepare('INSERT OR IGNORE INTO channel VALUES (?, ?)');
   s.run(1, 'general');
   s.run(2, 'sjakk');
   s.run(3, 'overwatch');
   s.finalize();
 
   console.log('inserting stat_type test values');
-  s = db.prepare('INSERT INTO stat_type VALUES (?, ?, ?)');
+  s = db.prepare('INSERT OR IGNORE INTO stat_type VALUES (?, ?, ?)');
   s.run(1, 'words', 'integer');
   s.run(2, 'lines', 'integer');
   s.run(3, 'letters', 'integer');
@@ -99,9 +98,8 @@ db.serialize(() => {
 
   console.log('inserting word test values');
   s = db.prepare(`
-    INSERT OR REPLACE INTO word
-    VALUES (:id, :word,
-      COALESCE( (SELECT w.times_used FROM word w WHERE w.word = :word), 0) + 1)
+    INSERT OR IGNORE INTO word
+    VALUES (:id, :word);
     `);
   s.run(null, 'word');
   s.run(null, 'word');
@@ -114,9 +112,8 @@ db.serialize(() => {
 
   console.log('inserting link test values');
   s = db.prepare(`
-    INSERT OR REPLACE INTO link
-    VALUES (:id, :url,
-      COALESCE( (SELECT l.repost_count FROM link l WHERE l.url = :url), 0) + 1)
+    INSERT OR IGNORE INTO link
+    VALUES (:id, :url)
     `);
   s.run(null, 'http://www.google.com');
   s.run(null, 'http://www.google.com');
@@ -161,7 +158,7 @@ db.serialize(() => {
 
 
   console.log('inserting user_channel_message test values');
-  s = db.prepare('INSERT INTO user_channel_message VALUES (?, ?, ?, ?)');
+  s = db.prepare('INSERT OR IGNORE INTO user_channel_message VALUES (?, ?, ?, ?)');
   s.run(1, 1, 1, 'hello world');
   s.run(2, 1, 1, 'hello my name is Jon Terje and I love coding');
   s.run(3, 1, 1, 'hello my name is Jon Terje and I love coding');
@@ -175,7 +172,7 @@ db.serialize(() => {
   s.finalize();
 
   console.log('inserting user_channel_stats test values');
-  s = db.prepare('INSERT INTO user_channel_stats VALUES (?, ?, ?, ?)');
+  s = db.prepare('INSERT OR IGNORE INTO user_channel_stats VALUES (?, ?, ?, ?)');
   s.run(1, 1, 1, 100);
   s.run(1, 1, 2, 10);
   s.run(1, 1, 3, 500);
