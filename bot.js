@@ -6,6 +6,7 @@ var https = require('https');
 var request = require('request-promise');
 var sqlite = require('sqlite3');
 
+var URI = require('urijs');
 
 const DISCORD_BOT_TOKEN = '';
 
@@ -107,6 +108,14 @@ function get_channel_name(channel_id) {
   return null;
 }
 
+function extract_urls(message) {
+  urls = [];
+  URI.withinString(message, (url) => {
+    urls.push(url);
+  });
+  return urls;
+}
+
 function handle_command(user_id, channel_id, command, args) {
   var user_username = get_username(user_id);
   var channel_name = get_channel_name(channel_id);
@@ -140,6 +149,13 @@ function handle_command(user_id, channel_id, command, args) {
         console.log(error);
       });
       break;
+    case 'links':
+      links((response) => {
+        send_text_message(target_id, response);
+      }, (error) => {
+        console.log(error);
+      });
+      break;
     case 'stats':
       stats(user_id, channel_id, (response) => {
         console.log('response', response);
@@ -162,6 +178,19 @@ function db_insert_words(words) {
   var s = db.prepare('INSERT OR IGNORE INTO word VALUES (?, ?)');
   words.forEach((word) => {
     s.run(null, word);
+  });
+  s.finalize();
+}
+
+
+function db_insert_links(links) {
+  console.log('db_insert_links', links);
+  if (!links) {
+    return;
+  }
+  var s = db.prepare('INSERT OR IGNORE INTO link VALUES (?, ?)');
+  links.forEach((link) => {
+    s.run(null, link);
   });
   s.finalize();
 }
@@ -192,13 +221,36 @@ function db_insert_user_words(user_id, words) {
   });
 }
 
-function db_insert_links(links) {
-  var s = db.prepare('INSERT INTO link VALUES (?, ?)');
-  for (link in links) {
-    s.run(null, link);
+function db_insert_user_links(user_id, links) {
+  console.log('db_insert_user_links', user_id, links);
+  if (!links) {
+    return;
   }
-  s.finalize();
+  quoted = [];
+  links.forEach((link) => {
+    quoted.push(JSON.stringify(link));
+  });
+  var query = `select l.id, l.url from link l where l.url in (${quoted.join(',')})`
+  console.log(query);
+  db.all(query, (error, rows) => {
+    if (error) {
+      console.error(query, error);
+      return;
+    }
+
+    var s = db.prepare(`
+      INSERT OR REPLACE INTO user_link
+      VALUES (:user_id, :link_id,
+        COALESCE( (SELECT ul.count FROM user_link ul WHERE ul.user_id = :user_id AND ul.link_id = :link_id), 0) + 1)
+      `);
+    rows.forEach((row) => {
+      console.log(row);
+      s.run(user_id, row.id);
+    });
+    s.finalize();
+  });
 }
+
 
 function db_insert_message(user_id, channel_id, message_id, message_contents) {
   var s = db.prepare(`INSERT INTO user_channel_message VALUES (?, ?, ?, ?)`);
@@ -228,7 +280,18 @@ function db_update_user_stats(user_id, channel_id, stat_type_id, value) {
 }
 
 function update_stats(user_id, channel_id, message_id, message_contents) {
-  // console.log('update stats', user_id, channel_id, message_id, message_contents);
+  console.log('update stats', user_id, channel_id, message_id, message_contents);
+
+  var urls = extract_urls(message_contents);
+  urls.forEach((url) => {
+    console.log(url);
+    message_contents = message_contents.replace(url, '');
+    console.log(message_contents);
+  });
+
+  db_insert_links(urls);
+  db_insert_user_links(user_id, urls);
+
 
   var lines = message_contents.split('\n');
   var count_lines = 0;
@@ -241,20 +304,21 @@ function update_stats(user_id, channel_id, message_id, message_contents) {
       sanitized_word = word.replace(/[^a-zA-Z0-9\-]*/g, '');
       if (sanitized_word.length > 2) {
         words.push(sanitized_word);
-        db_insert_user_words(user_id, [sanitized_word]);
+        // db_insert_user_words(user_id, [sanitized_word]);
       }
     });
   });
 
   var count_words = words.length;
   db_insert_words(words);
-  // db_insert_user_words(user_id, words);
+  db_insert_user_words(user_id, words);
   db_insert_message(user_id, channel_id, message_id, message_contents);
 
   db_update_user_stats(user_id, channel_id, STAT_TYPE_LINES, count_lines);
   db_update_user_stats(user_id, channel_id, STAT_TYPE_WORDS, count_words);
   db_update_user_stats(user_id, channel_id, STAT_TYPE_LETTERS, count_chars);
-  console.log(count_lines, count_words, count_chars);
+
+  // console.log(count_lines, count_words, count_chars);
 
 }
 
@@ -268,6 +332,19 @@ function words(callback, error_callback) {
       words.push(row.word);
     });
     callback(words);
+  });
+}
+
+function links(callback, error_callback) {
+  var links = [];
+  db.all('select l.url from link l', (error, rows) => {
+    if (error) {
+      error_callback(error);
+    }
+    rows.forEach((row) => {
+      links.push(row.url);
+    });
+    callback(links);
   });
 }
 
@@ -292,10 +369,10 @@ function stats(user_id, channel_id, callback, error_callback) {
     FROM user_channel_stats ucs
       JOIN stat_type t on t.id = ucs.stat_type_id
       JOIN user u on u.id = ucs.user_id
-    WHERE ucs.user_id = ?
+    WHERE ucs.user_id = ? AND ucs.channel_id = ?
   `);
   var response = '';
-  s.all(user_id, (error, rows) => {
+  s.all(user_id, channel_id, (error, rows) => {
     if (error) {
       console.log('error', error);
       return;
@@ -305,9 +382,10 @@ function stats(user_id, channel_id, callback, error_callback) {
       response_lines.push(`${row.stat_value} ${row.stat_name}`);
     });
     var username = get_username(user_id);
+    var channel_name = get_channel_name(channel_id);
     var stat_string = response_lines.join(', ');
     var topwords_string = top_words.join(', ');
-    callback(`${username} : ${stat_string}, top words : ${topwords_string}`);
+    callback(`stats for ${username} in ${channel_name} : ${stat_string}, top words : ${topwords_string}`);
   });
   s.finalize();
 }
@@ -374,7 +452,7 @@ function get_json(url, callback, error_callback) {
 }
 
 function lastfm(args, callback, error_callback) {
-  if (1 < args.length > 2) {
+  if (args.length < 1 || args.length > 2) {
     error_callback('usage: !lastfm <username> [nowplaying|topalbums|toptracks]');
     return;
   }
