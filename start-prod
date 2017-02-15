@@ -3,10 +3,10 @@
 
 cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
-git pull
-npm install
+# git pull
+# npm install
 
-FOREVER_UID="tsge-discord_bot"
+FOREVER_UID="tsge-discord-bot"
 # forever list
 forever stop "$FOREVER_UID"
 

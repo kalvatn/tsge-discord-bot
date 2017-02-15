@@ -4,7 +4,9 @@ var Discord = require('discord.io');
 var http = require('http');
 var https = require('https');
 var request = require('request-promise');
+var sqlite = require('sqlite3');
 
+var URI = require('urijs');
 
 const DISCORD_BOT_TOKEN = '';
 
@@ -20,10 +22,9 @@ const LASTFM_METHODS = {
 const COMMAND_PREFIXES = [ '!', '?' ];
 const DEBUG = false;
 
-
-const CHANNEL_STATS = {};
-
-
+const STAT_TYPE_LINES = 1;
+const STAT_TYPE_WORDS = 2;
+const STAT_TYPE_LETTERS = 3;
 
 console.info('creating discord client');
 var bot = new Discord.Client({
@@ -31,62 +32,137 @@ var bot = new Discord.Client({
   autorun: !DEBUG
 });
 
-bot.on('ready', function() {
+var db;
+
+function db_connect(callback) {
+  db = new sqlite.Database('tsge-discord.sqlite3.db', callback);
+}
+
+
+
+function db_create_user(user_id, user_username) {
+  s = db.prepare('INSERT OR IGNORE INTO user VALUES (?, ?)');
+  s.run(user_id, user_username);
+  s.finalize();
+}
+
+function db_create_channel(channel_id, channel_name) {
+  s = db.prepare('INSERT OR IGNORE INTO channel VALUES (?, ?)');
+  s.run(channel_id, channel_name);
+  s.finalize();
+}
+
+
+bot.on('ready', (event) => {
+  // console.log('ready event ', event);
   console.info(`logged in as ${bot.id} (${bot.username})`);
+  db_connect(() => {
+
+    if (!db) {
+      console.log('database not connected', db);
+      return;
+    }
+    for (channel_id in bot.channels) {
+      var channel = bot.channels[channel_id];
+      db_create_channel(channel_id, channel.name);
+    }
+    for (user_id in bot.users) {
+      var user = bot.users[user_id];
+      db_create_user(user_id, user.username);
+    }
+  });
+
+  // console.log('servers', bot.servers);
+  // console.log('channels', bot.channels);
+  // console.log('users', bot.users);
 });
 
-bot.on('message', function(username, user_id, channel_id, message, e) {
-  handle_message(username, user_id, channel_id, message);
+bot.on('message', (user_username, user_id, channel_id, message, event) => {
+  // console.log('message event', event);
+  var message_id = event.d.id;
+  handle_message(user_id, channel_id, message_id, message);
+});
+
+bot.on('presence', (user_username, user_id, user_status, game, event) => {
+  // console.log('presence event : ', event)
 });
 
 bot.on('disconnect', function(error, error_code) {
-  console.warn(`disconnected due to ${error} (${error_code}), reconnecting..`);
+  console.info(`disconnected due to ${error} (${error_code}), reconnecting..`);
+  db.close();
   bot.connect();
 });
 
 if (DEBUG) {
-  // handle_message('kalvatn', 1, 1, '!lastfm chauney', null);
-  // handle_message('kalvatn', 1, 1, '!xkcd 1', null);
-  // handle_message('kalvatn', 1, 1, '!xkcd', null);
-  handle_message('kalvatn', 1, 1, '!tts hello world', null);
-  handle_message('kalvatn', 1, 1, 'hello world', null);
-  handle_message('kalvatn', 1, 1, 'hello world', null);
-  handle_message('kalvatn', 1, 1, 'fuck off', null);
-  handle_message('kalvatn', 1, 1, 'lol i haz cheezebrgrz wit catz hello world fuck off #ignore this shit motherfucker', null);
-  handle_message('kalvatn', 1, 1, '!stats', null);
-  // handle_message('kalvatn', 1, 1, '!lastfm chauney nowplaying', null);
-  // handle_message('kalvatn', 1, 1, '!lastfm chauney topalbums', null);
-  // handle_message('kalvatn', 1, 1, '!lastfm chauney toptracks', null);
+  //
 }
 
-function handle_command(user, user_id, channel_id, command, args) {
-  console.info(`user ${user_id} (${user}) in channel ${channel_id} issued command : ${command}, args : ${args}`);
+function get_username(user_id) {
+  return bot.users[user_id].username;
+}
+
+function get_channel_name(channel_id) {
+  if (bot.channels[channel_id]) {
+    return bot.channels[channel_id].name;
+  }
+  return null;
+}
+
+function extract_urls(message) {
+  urls = [];
+  URI.withinString(message, (url) => {
+    urls.push(url);
+  });
+  return urls;
+}
+
+function handle_command(user_id, channel_id, command, args) {
+  var user_username = get_username(user_id);
+  var channel_name = get_channel_name(channel_id);
+  var target_id = (channel_name) ? channel_id : user_id;
+  console.info(`user ${user_id} (${user_username}) in channel ${channel_id} (${channel_name}) issued command : ${command}, args : ${args}`);
   switch (command) {
     case 'tts':
-      send_text_message(channel_id, args.join(' '), true);
+      send_text_message(target_id, args.join(' '), true);
       break;
     case 'lastfm':
     case 'np':
       lastfm(args, (response) => {
         response.forEach((r) => {
-          send_text_message(channel_id, r);
+          send_text_message(target_id, r);
         });
       }, (error) => {
-        send_text_message(channel_id, error);
+        send_text_message(target_id, error);
       });
       break;
     case 'xkcd':
       xkcd(args, (response) => {
-        send_text_message(channel_id, response);
+        send_text_message(target_id, response);
       }, (error) => {
-        send_text_message(channel_id, error);
+        send_text_message(target_id, error);
+      });
+      break;
+    case 'words':
+      words((response) => {
+        send_text_message(target_id, response);
+      }, (error) => {
+        console.log(error);
+      });
+      break;
+    case 'links':
+      links((response) => {
+        send_text_message(target_id, response);
+      }, (error) => {
+        console.log(error);
       });
       break;
     case 'stats':
-      stats(channel_id, user_id, (response) => {
-        send_text_message(channel_id, response);
+      stats(user_id, channel_id, (response) => {
+        console.log('response', response);
+        send_text_message(target_id, response);
       }, (error) => {
-        send_text_message(channel_id, error);
+        console.error(error);
+        send_text_message(target_id, error);
       });
       break;
     case 'help':
@@ -98,70 +174,235 @@ function handle_command(user, user_id, channel_id, command, args) {
 }
 
 
-
-function update_stats(channel_id, user_id, message) {
-  if (!CHANNEL_STATS[channel_id]) {
-    // console.log(`creating stats for channel ${channel_id}`);
-    CHANNEL_STATS[channel_id] = { }
-  }
-
-  if (!CHANNEL_STATS[channel_id][user_id]) {
-    // console.log(`creating stats for user ${user_id} in channel ${channel_id}`);
-    CHANNEL_STATS[channel_id][user_id] = {
-      word_counts : {},
-      word_count : 0
-    }
-  }
-
-  var user_stats = CHANNEL_STATS[channel_id][user_id];
-  message.split(' ').forEach((w) => {
-    if (!user_stats.word_counts[w]) {
-      user_stats.word_counts[w] = 0
-    }
-    user_stats.word_counts[w] += 1
-    user_stats.word_count += 1;
+function db_insert_words(words) {
+  var s = db.prepare('INSERT OR IGNORE INTO word VALUES (?, ?)');
+  words.forEach((word) => {
+    s.run(null, word);
   });
-  // console.log(`words for user ${user_id} in channel ${channel_id}`);
-  // for (key in user_stats.word_counts) {
-  //   console.log(`${key} : ${user_stats.word_counts[key]}`);
-  // }
-
-  // console.log(user_stats);
+  s.finalize();
 }
 
-function stats(channel_id, user_id, callback, error_callback) {
-  if (!CHANNEL_STATS[channel_id]) {
-    error_callback(`no stats recorded for channel ${channel_id}`);
-    return;
-  }
-  if (!CHANNEL_STATS[channel_id][user_id]) {
-    error_callback(`no stats recorded for user ${user_id} in channel ${channel_id}`);
-    return;
-  }
 
-  var user_stats = CHANNEL_STATS[channel_id][user_id];
-  var user_word_counts = user_stats.word_counts;
-  var total_word_count = 0;
-  for (key in user_word_counts) {
-    total_word_count += user_word_counts[key];
+function db_insert_links(links) {
+  console.log('db_insert_links', links);
+  if (!links) {
+    return;
   }
-  var top_three_words = Object.keys(user_word_counts).sort((a, b) => {
-    return user_word_counts[b] - user_word_counts[a];
-  }).slice(0, 3);
-  var top_word_stats = [];
-  top_three_words.forEach((w) => {
-    top_word_stats.push(`${w} (${user_word_counts[w]})`);
+  var s = db.prepare('INSERT OR IGNORE INTO link VALUES (?, ?)');
+  links.forEach((link) => {
+    s.run(null, link);
   });
-  var response = `word count : ${total_word_count}, top words : ${top_word_stats.join(', ')}`;
-  callback(response);
+  s.finalize();
 }
 
-function handle_message(user, user_id, channel_id, message) {
+function db_insert_user_words(user_id, words) {
+  quoted_words = [];
+  words.forEach((word) => {
+    quoted_words.push(JSON.stringify(word));
+  });
+  var query = `select w.id, w.word from word w where w.word in (${quoted_words.join(',')})`
+  console.log(query);
+  db.all(query, (error, rows) => {
+    if (error) {
+      console.error(query, error);
+      return;
+    }
+
+    var s = db.prepare(`
+      INSERT OR REPLACE INTO user_word
+      VALUES (:user_id, :word_id,
+        COALESCE( (SELECT w.count FROM user_word w WHERE w.user_id = :user_id AND w.word_id = :word_id), 0) + 1)
+      `);
+    rows.forEach((row) => {
+      console.log(row);
+      s.run(user_id, row.id);
+    });
+    s.finalize();
+  });
+}
+
+function db_insert_user_links(user_id, links) {
+  console.log('db_insert_user_links', user_id, links);
+  if (!links) {
+    return;
+  }
+  quoted = [];
+  links.forEach((link) => {
+    quoted.push(JSON.stringify(link));
+  });
+  var query = `select l.id, l.url from link l where l.url in (${quoted.join(',')})`
+  console.log(query);
+  db.all(query, (error, rows) => {
+    if (error) {
+      console.error(query, error);
+      return;
+    }
+
+    var s = db.prepare(`
+      INSERT OR REPLACE INTO user_link
+      VALUES (:user_id, :link_id,
+        COALESCE( (SELECT ul.count FROM user_link ul WHERE ul.user_id = :user_id AND ul.link_id = :link_id), 0) + 1)
+      `);
+    rows.forEach((row) => {
+      console.log(row);
+      s.run(user_id, row.id);
+    });
+    s.finalize();
+  });
+}
+
+
+function db_insert_message(user_id, channel_id, message_id, message_contents) {
+  var s = db.prepare(`INSERT INTO user_channel_message VALUES (?, ?, ?, ?)`);
+  s.run(message_id, user_id, channel_id, message_contents);
+  s.finalize();
+}
+
+function db_update_user_stats(user_id, channel_id, stat_type_id, value) {
+  console.log(user_id, channel_id, stat_type_id, value);
+  var s = db.prepare('UPDATE user_channel_stats SET value = value + ? WHERE user_id = ? AND channel_id = ? AND stat_type_id = ?');
+  s.run(value, user_id, channel_id, stat_type_id, (error) => {
+    if (error) {
+      console.error('error', error);
+      return;
+    }
+  });
+  s.finalize()
+
+  s = db.prepare('INSERT OR IGNORE INTO user_channel_stats VALUES (?, ?, ?, ?)');
+  s.run(user_id, channel_id, stat_type_id, value, (error) => {
+    if (error) {
+      console.error(error);
+      return;
+    }
+  });
+  s.finalize()
+}
+
+function update_stats(user_id, channel_id, message_id, message_contents) {
+  console.log('update stats', user_id, channel_id, message_id, message_contents);
+
+  var urls = extract_urls(message_contents);
+  urls.forEach((url) => {
+    console.log(url);
+    message_contents = message_contents.replace(url, '');
+    console.log(message_contents);
+  });
+
+  db_insert_links(urls);
+  db_insert_user_links(user_id, urls);
+
+
+  var lines = message_contents.split('\n');
+  var count_lines = 0;
+  var count_chars = 0;
+  var words = [];
+  lines.forEach((line) => {
+    count_lines += 1;
+    line.replace(/,/g, ' ').split(/\s/).forEach((word) => {
+      count_chars += word.length;
+      sanitized_word = word.replace(/[^a-zA-Z0-9\-]*/g, '');
+      if (sanitized_word.length > 2) {
+        words.push(sanitized_word);
+        // db_insert_user_words(user_id, [sanitized_word]);
+      }
+    });
+  });
+
+  var count_words = words.length;
+  db_insert_words(words);
+  db_insert_user_words(user_id, words);
+  db_insert_message(user_id, channel_id, message_id, message_contents);
+
+  db_update_user_stats(user_id, channel_id, STAT_TYPE_LINES, count_lines);
+  db_update_user_stats(user_id, channel_id, STAT_TYPE_WORDS, count_words);
+  db_update_user_stats(user_id, channel_id, STAT_TYPE_LETTERS, count_chars);
+
+  // console.log(count_lines, count_words, count_chars);
+
+}
+
+function words(callback, error_callback) {
+  var words = [];
+  db.all('select w.word from word w', (error, rows) => {
+    if (error) {
+      error_callback(error);
+    }
+    rows.forEach((row) => {
+      words.push(row.word);
+    });
+    callback(words);
+  });
+}
+
+function links(callback, error_callback) {
+  var links = [];
+  db.all('select l.url from link l', (error, rows) => {
+    if (error) {
+      error_callback(error);
+    }
+    rows.forEach((row) => {
+      links.push(row.url);
+    });
+    callback(links);
+  });
+}
+
+function stats(user_id, channel_id, callback, error_callback) {
+  console.log(user_id, channel_id);
+
+  top_words = [];
+  db.all('SELECT w.word, uw.count FROM user_word uw JOIN word w ON w.id = uw.word_id WHERE user_id = ? ORDER BY uw.count DESC LIMIT 5', user_id, (error, rows) => {
+    if (error) {
+      console.error('error fetching top words', error);
+      return;
+    }
+    rows.forEach((row) => {
+      console.log(row);
+      top_words.push(`${row.word} (${row.count})`)
+    });
+  });
+  var s = db.prepare(`
+    SELECT
+      u.username,
+      t.name AS stat_name, ucs.value AS stat_value
+    FROM user_channel_stats ucs
+      JOIN stat_type t on t.id = ucs.stat_type_id
+      JOIN user u on u.id = ucs.user_id
+    WHERE ucs.user_id = ? AND ucs.channel_id = ?
+  `);
+  var response = '';
+  s.all(user_id, channel_id, (error, rows) => {
+    if (error) {
+      console.log('error', error);
+      return;
+    }
+    var response_lines = [];
+    rows.forEach((row) => {
+      response_lines.push(`${row.stat_value} ${row.stat_name}`);
+    });
+    var username = get_username(user_id);
+    var channel_name = get_channel_name(channel_id);
+    var stat_string = response_lines.join(', ');
+    var topwords_string = top_words.join(', ');
+    callback(`stats for ${username} in ${channel_name} : ${stat_string}, top words : ${topwords_string}`);
+  });
+  s.finalize();
+}
+
+
+function handle_message(user_id, channel_id, message_id, message_contents) {
   if (user_id == bot.id) {
     return;
   }
 
-  var messageSplit = message.split(' ');
+  var user_username = get_username(user_id);
+  var channel_name = get_channel_name(channel_id);
+  console.info(`${user_username} in channel ${channel_name} sent message ${message_id} : ${message_contents}`);
+  db_create_user(user_id, user_username);
+  db_create_channel(channel_id, channel_name);
+
+  var messageSplit = message_contents.split(' ');
   if (!messageSplit && messageSplit.length <= 0) {
     return;
   }
@@ -169,10 +410,10 @@ function handle_message(user, user_id, channel_id, message) {
   if (COMMAND_PREFIXES.indexOf(messageSplit[0].charAt(0)) > -1) {
     var command = messageSplit[0].substr(1, messageSplit[0].length);
     var args = messageSplit.slice(1, messageSplit.length);
-    handle_command(user, user_id, channel_id, command, args);
+    handle_command(user_id, channel_id, command, args);
   } else {
     // update stats
-    update_stats(channel_id, user_id, message);
+    update_stats(user_id, channel_id, message_id, message_contents);
   }
 
 }
@@ -211,7 +452,7 @@ function get_json(url, callback, error_callback) {
 }
 
 function lastfm(args, callback, error_callback) {
-  if (1 < args.length > 2) {
+  if (args.length < 1 || args.length > 2) {
     error_callback('usage: !lastfm <username> [nowplaying|topalbums|toptracks]');
     return;
   }
@@ -298,4 +539,6 @@ function xkcd(args, callback, error_callback) {
     error_callback(error);
   });
 }
+
+
 
