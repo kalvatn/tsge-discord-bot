@@ -149,6 +149,14 @@ function handle_command(user_id, channel_id, command, args) {
         console.log(error);
       });
       break;
+    case 'videochat':
+    case 'screenshare':
+      appearin(args, (response) => {
+        send_text_message(target_id, response);
+      }, (error) => {
+        console.log(error);
+      });
+      break;
     case 'links':
       top_links((response) => {
         send_text_message(target_id, response);
@@ -569,5 +577,10 @@ function xkcd(args, callback, error_callback) {
   });
 }
 
+
+function appearin(args, callback, error_callback) {
+  var url = 'https://appear.in/' + Math.random().toString().replace('.', '').slice(0, 10);
+  callback(url);
+}
 
 
