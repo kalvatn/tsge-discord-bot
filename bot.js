@@ -143,14 +143,14 @@ function handle_command(user_id, channel_id, command, args) {
       });
       break;
     case 'words':
-      words((response) => {
+      get_top_words((response) => {
         send_text_message(target_id, response);
       }, (error) => {
         console.log(error);
       });
       break;
     case 'links':
-      links((response) => {
+      top_links((response) => {
         send_text_message(target_id, response);
       }, (error) => {
         console.log(error);
@@ -195,14 +195,9 @@ function db_insert_links(links) {
   s.finalize();
 }
 
-function db_insert_user_words(user_id, words) {
-  quoted_words = [];
-  words.forEach((word) => {
-    quoted_words.push(JSON.stringify(word));
-  });
-  var query = `select w.id, w.word from word w where w.word in (${quoted_words.join(',')})`
-  console.log(query);
-  db.all(query, (error, rows) => {
+function db_insert_user_word(user_id, word, count) {
+  var query = `select w.id, w.word from word w where w.word = ?`
+  db.all(query, word, (error, rows) => {
     if (error) {
       console.error(query, error);
       return;
@@ -211,10 +206,9 @@ function db_insert_user_words(user_id, words) {
     var s = db.prepare(`
       INSERT OR REPLACE INTO user_word
       VALUES (:user_id, :word_id,
-        COALESCE( (SELECT w.count FROM user_word w WHERE w.user_id = :user_id AND w.word_id = :word_id), 0) + 1)
+        COALESCE( (SELECT w.count FROM user_word w WHERE w.user_id = :user_id AND w.word_id = :word_id), 0) + ${count})
       `);
     rows.forEach((row) => {
-      console.log(row);
       s.run(user_id, row.id);
     });
     s.finalize();
@@ -222,7 +216,6 @@ function db_insert_user_words(user_id, words) {
 }
 
 function db_insert_user_links(user_id, links) {
-  console.log('db_insert_user_links', user_id, links);
   if (!links) {
     return;
   }
@@ -283,46 +276,55 @@ function update_stats(user_id, channel_id, message_id, message_contents) {
   console.log('update stats', user_id, channel_id, message_id, message_contents);
 
   var urls = extract_urls(message_contents);
-  urls.forEach((url) => {
-    console.log(url);
-    message_contents = message_contents.replace(url, '');
-    console.log(message_contents);
-  });
 
-  db_insert_links(urls);
-  db_insert_user_links(user_id, urls);
+  if (urls) {
+    urls.forEach((url) => {
+      message_contents = message_contents.replace(url, '');
+    });
+
+    db_insert_links(urls);
+    db_insert_user_links(user_id, urls);
+  }
 
 
   var lines = message_contents.split('\n');
   var count_lines = 0;
   var count_chars = 0;
-  var words = [];
+  var word_counts = {};
   lines.forEach((line) => {
     count_lines += 1;
     line.replace(/,/g, ' ').split(/\s/).forEach((word) => {
       count_chars += word.length;
       sanitized_word = word.replace(/[^a-zA-Z0-9\-]*/g, '');
       if (sanitized_word.length > 2) {
-        words.push(sanitized_word);
-        // db_insert_user_words(user_id, [sanitized_word]);
+        if (!word_counts[sanitized_word]) {
+          word_counts[sanitized_word] = 0;
+        }
+        word_counts[sanitized_word] += 1;
       }
     });
   });
 
-  var count_words = words.length;
-  db_insert_words(words);
-  db_insert_user_words(user_id, words);
+  db_insert_words(Object.keys(word_counts));
+
+  var total_word_count = Object.keys(word_counts).reduce((accumulator, value) => {
+    return accumulator + word_counts[value];
+  }, 0);
+  for (word in word_counts) {
+    console.log(word, word_counts[word]);
+    db_insert_user_word(user_id, word, word_counts[word]);
+  }
   db_insert_message(user_id, channel_id, message_id, message_contents);
 
   db_update_user_stats(user_id, channel_id, STAT_TYPE_LINES, count_lines);
-  db_update_user_stats(user_id, channel_id, STAT_TYPE_WORDS, count_words);
+  db_update_user_stats(user_id, channel_id, STAT_TYPE_WORDS, total_word_count);
   db_update_user_stats(user_id, channel_id, STAT_TYPE_LETTERS, count_chars);
 
-  // console.log(count_lines, count_words, count_chars);
+  // console.log(count_lines, total_word_count, count_chars);
 
 }
 
-function words(callback, error_callback) {
+function get_all_words(callback, error_callback) {
   var words = [];
   db.all('select w.word from word w', (error, rows) => {
     if (error) {
@@ -335,16 +337,44 @@ function words(callback, error_callback) {
   });
 }
 
-function links(callback, error_callback) {
-  var links = [];
-  db.all('select l.url from link l', (error, rows) => {
+function get_all_links(callback, error_callback) {
+  var links = {};
+  db.all('select l.id, l.url from link l', (error, rows) => {
     if (error) {
       error_callback(error);
     }
     rows.forEach((row) => {
-      links.push(row.url);
+      links[row.id] = row.url;
     });
     callback(links);
+  });
+}
+
+function top_links(callback, error_callback) {
+  links = [];
+  db.all('SELECT l.url, SUM(ul.count) AS total_count FROM link l JOIN user_link ul ON ul.link_id = l.id GROUP BY l.id ORDER BY total_count DESC LIMIT 5', (error, rows) => {
+    if (error) {
+      error_callback('error fetching top links');
+      return;
+    }
+    rows.forEach((row) => {
+      links.push(`${row.url} (${row.total_count})`)
+    });
+    callback(links);
+  });
+}
+
+function get_top_words(callback, error_callback) {
+  words = [];
+  db.all('SELECT w.word, SUM(uw.count) AS total_count FROM word w JOIN user_word uw ON uw.word_id = w.id GROUP BY w.id ORDER BY total_count DESC LIMIT 5', (error, rows) => {
+    if (error) {
+      error_callback('error fetching top words');
+      return;
+    }
+    rows.forEach((row) => {
+      words.push(`${row.word} (${row.total_count})`)
+    });
+    callback(words);
   });
 }
 
@@ -358,7 +388,6 @@ function stats(user_id, channel_id, callback, error_callback) {
       return;
     }
     rows.forEach((row) => {
-      console.log(row);
       top_words.push(`${row.word} (${row.count})`)
     });
   });
