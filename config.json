@@ -1,0 +1,16 @@
+{
+  "bot": {
+    "token" : "",
+    "autorun" : true,
+    "prefixes" : [ "!", "?", "--" ]
+  },
+  "lastfm" : {
+    "api_key" : ""
+  },
+  "wolfram" : {
+    "app_id" : ""
+  },
+  "twitter" : {
+    "api_key" : ""
+  }
+}
