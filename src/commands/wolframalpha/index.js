@@ -17,6 +17,9 @@ function run_query(query) {
 }
 
 function wolfram(query) {
+  if (query instanceof Array) {
+    query = query.join(' ');
+  }
   return run_query(query)
     .then(data => {
       let input = data[0].subpods[0].image;
@@ -32,4 +35,7 @@ function wolfram(query) {
     // .then(R.prop('image'));
 }
 
-export default wolfram;
+export const run = wolfram;
+export const name = 'wolframalpha';
+export const desc = 'query https://www.wolframalpha.com';
+export const aliases = [ 'wolframalpha', 'wfa', 'wolf' ];

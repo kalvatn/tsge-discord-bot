@@ -24,4 +24,7 @@ function lastfm(username) {
     });
 }
 
-export default lastfm;
+export const run = lastfm;
+export const name = 'last.fm';
+export const desc = 'get information about users from https://last.fm';
+export const aliases = [ 'lastfm' ];

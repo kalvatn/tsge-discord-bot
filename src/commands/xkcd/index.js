@@ -17,4 +17,7 @@ function xkcd(number) {
     });
 }
 
-export default xkcd;
+export const run = xkcd;
+export const name = 'xkcd';
+export const desc = 'get comic from https://xkcd.com';
+export const aliases = [ 'xkcd' ];
