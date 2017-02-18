@@ -21,3 +21,4 @@ export const run = xkcd;
 export const name = 'xkcd';
 export const desc = 'get comic from https://xkcd.com';
 export const aliases = [ 'xkcd' ];
+export const help = '!xkcd [number] - returns latest comic from https://xkcd.com or comic with [number] if specified';

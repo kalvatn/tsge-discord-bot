@@ -1,6 +1,7 @@
 import nconf from 'nconf';
 import Promise from 'bluebird';
 import R from 'ramda';
+import shorten_url from '../shortenurl';
 
 import wolframalpha from 'wolfram-alpha';
 
@@ -22,20 +23,15 @@ function wolfram(query) {
   }
   return run_query(query)
     .then(data => {
+      let images = [];
       let input = data[0].subpods[0].image;
       let result = data[1].subpods[0].image;
-      return `${input} -> ${result}`
+      return `${input} -> ${result}`;
     });
-    // .then(R.nth(1))
-    // .tap(data => {
-    //   if (!data) throw new Error('no results found');
-    // })
-    // .then(R.prop('subpods'))
-    // .then(R.nth(0))
-    // .then(R.prop('image'));
 }
 
 export const run = wolfram;
 export const name = 'wolframalpha';
 export const desc = 'query https://www.wolframalpha.com';
 export const aliases = [ 'wolframalpha', 'wfa', 'wolf' ];
+export const help = '!wfa <query> - run wolframalpha query\nsee https://www.wolframalpha.com/examples/';

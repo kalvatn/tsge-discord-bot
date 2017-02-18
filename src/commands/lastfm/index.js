@@ -28,3 +28,5 @@ export const run = lastfm;
 export const name = 'last.fm';
 export const desc = 'get information about users from https://last.fm';
 export const aliases = [ 'lastfm' ];
+export const help = '!lastfm <username> - shows most recently played track for <username> from https://last.fm';
+

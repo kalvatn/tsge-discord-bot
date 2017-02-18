@@ -132,6 +132,8 @@ function handle_command(user_id, channel_id, command, args) {
       send_text_message(target_id, args.join(' '), true);
       break;
     case 'reloadcommands':
+    case 'reloadcmd':
+    case 'rc':
       reload_commands();
       send_text_message(target_id, 'command cache refreshed');
       break;
@@ -146,8 +148,11 @@ function handle_command(user_id, channel_id, command, args) {
 
 function send_help_message(discord_id) {
   let help = '```\n';
-  help += JSON.stringify(CommandCache, null, 2);
-  help += '```\n'
+  for (let [key, command_object] of Object.entries(CommandCache)) {
+    console.log(command_object);
+    help += command_object.help + '\n';
+  }
+  help += '```\n';
   send_text_message(discord_id, help);
 }
 
