@@ -21,6 +21,9 @@ function reload_commands() {
   fs.readdirSync(COMMAND_ROOT).forEach((command_name) => {
     let command_path = path.join(COMMAND_ROOT, command_name, 'index.js');
     if (fs.existsSync(command_path)) {
+      if (require.cache[command_path]) {
+        delete require.cache[command_path];
+      }
       try {
         let command = require(command_path);
         CommandCache[command_name] = command;
@@ -30,8 +33,6 @@ function reload_commands() {
       }
     }
   });
-
-  console.log(CommandCache);
 }
 
 reload_commands();
@@ -101,11 +102,11 @@ function handle_message(user_id, channel_id, message_id, message_contents) {
   if (COMMAND_PREFIXES.indexOf(messageSplit[0].charAt(0)) > -1) {
     var command = messageSplit[0].substr(1, messageSplit[0].length).trim();
     var args = messageSplit.slice(1, messageSplit.length);
-    handle_command(user_id, channel_id, command, args);
+    handle_command(user_id, channel_id, message_id, command, args);
   }
 }
 
-function handle_command(user_id, channel_id, command, args) {
+function handle_command(user_id, channel_id, message_id, command, args) {
   var user_username = get_username(user_id);
   var channel_name = get_channel_name(channel_id);
   var target_id = (channel_name) ? channel_id : user_id;
@@ -115,8 +116,11 @@ function handle_command(user_id, channel_id, command, args) {
   for (let [key, command_object] of Object.entries(CommandCache)) {
     if (command_object.aliases.indexOf(command) > -1) {
       found = true;
+      simulate_typing(target_id);
       command_object.run(args).then(result => {
         send_text_message(target_id, result);
+        // edit_message(target_id, message_id, result);
+        delete_message(target_id, message_id);
       }).catch(error => {
         console.error(error);
         send_text_message(target_id, error);
@@ -137,6 +141,9 @@ function handle_command(user_id, channel_id, command, args) {
       reload_commands();
       send_text_message(target_id, 'command cache refreshed');
       break;
+    // case 'clear':
+    //   clear(target_id, message_id, args[0]);
+    //   break;
     case 'help':
     case 'commands':
     case '?':
@@ -164,6 +171,85 @@ function send_text_message(discord_id, message, text_to_speech) {
   }, (error, response) => {
     if (error) {
       console.error('error : ', error);
+    }
+  });
+}
+
+function simulate_typing(discord_id) {
+  bot.simulateTyping(discord_id, (error, response) => {
+    if (error) {
+      console.error('error simulating typing', error);
+    }
+  });
+}
+
+function edit_message(discord_id, message_id, new_contents) {
+  bot.editMessage({
+    channelID : discord_id,
+    messageID : message_id,
+    message : new_contents
+  }, (error, response) => {
+    if (error) {
+      console.log('error deleting message', message_id, error);
+    }
+  });
+}
+
+
+function clear(channel_id, before_message_id, limit) {
+  if (!limit || limit < 2 || limit > 100) {
+    console.error('no limit or 2 < limit > 100', limit);
+    return;
+  }
+  get_messages(channel_id, before_message_id, null, limit, (messages) => {
+    let message_ids = [];
+    messages.forEach((message) => {
+      message_ids.push(message.id);
+    });
+
+    if (message_ids.length < 2 || message_ids.length > 100) {
+      console.log('too few or too many messages to delete');
+      return;
+    }
+    message_ids = message_ids.slice(0, limit);
+
+    delete_messages(channel_id, message_ids);
+  });
+}
+
+function get_messages(channel_id, before_message_id, after_message_id, limit, callback) {
+  bot.getMessages({
+    channelID : channel_id,
+    before : before_message_id,
+    after : after_message_id,
+    limit : limit
+  }, (error, messages) => {
+    if (error) {
+      console.error('error getting messages', error);
+    }
+    callback(messages);
+  });
+}
+
+function delete_message(channel_id, message_id) {
+  bot.deleteMessage({
+    channelID : channel_id,
+    messageID : message_id
+  }, (error, response) => {
+    if (error) {
+      console.log('error deleting message', message_id, error);
+    }
+  });
+}
+function delete_messages(channel_id, message_ids) {
+
+  console.log('deleting messages', message_ids);
+  bot.deleteMessages({
+    channelID : channel_id,
+    messageIDs : message_ids
+  }, (error, response) => {
+    if (error) {
+      console.log('error deleting messages', message_ids, error);
     }
   });
 }

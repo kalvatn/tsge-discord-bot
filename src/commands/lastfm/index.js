@@ -1,5 +1,6 @@
 import Promise from 'bluebird';
 import nconf from 'nconf';
+import { markdown } from '../../util/string';
 
 const request = Promise.promisify(require('request'));
 
@@ -20,7 +21,8 @@ function lastfm(username) {
       var artist = last_played.artist['#text'];
       var album = last_played.album['#text'];
       var title = last_played.name;
-      return `${artist} - ${album} - ${title}`;
+      // return '```' + `${username} last played *${artist} - ${album} - ${title}*` + '```';
+      return markdown(`${username} last played ${artist} - ${album} - ${title}`);
     });
 }
 
