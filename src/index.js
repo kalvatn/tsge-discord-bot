@@ -1,6 +1,7 @@
 import Discord from 'discord.io';
 import Promise from 'bluebird';
 import path from 'path';
+import fs from 'fs';
 
 const request = Promise.promisify(require('request'));
 import URI from 'urijs';
@@ -11,13 +12,33 @@ nconf.argv()
   .use('memory')
   .file({ file : path.join(__dirname, '../config.json') });
 
-import xkcd from './commands/xkcd.js';
-import lastfm from './commands/lastfm.js';
-import appearin from './commands/appearin.js';
-import wolfram from './commands/wolfram.js';
-
-
 const COMMAND_PREFIXES = nconf.get('bot:prefixes');
+const COMMAND_ROOT = path.join(__dirname, 'commands');
+
+const CommandCache = {};
+
+function reload_commands() {
+  fs.readdirSync(COMMAND_ROOT).forEach((command_name) => {
+    let command_path = path.join(COMMAND_ROOT, command_name, 'index.js');
+    if (fs.existsSync(command_path)) {
+      try {
+        let command = require(command_path);
+        CommandCache[command_name] = command;
+        console.info(`loaded command_name ${command_name}`);
+      } catch (error) {
+        console.error(`failed to load command_name ${command_name}`, error);
+      }
+    }
+  });
+
+  console.log(CommandCache);
+}
+
+reload_commands();
+// CommandCache['wolframalpha'].run([ '2+2' ]).then(result => {
+//   console.log(result);
+// });
+
 
 console.info('creating discord client');
 var bot = new Discord.Client({
@@ -36,6 +57,7 @@ bot.on('message', (user_username, user_id, channel_id, message, event) => {
 });
 
 bot.on('presence', (user_username, user_id, user_status, game, event) => {
+  //
 });
 
 bot.on('disconnect', function(error, error_code) {
@@ -63,49 +85,6 @@ function extract_urls(message) {
   return urls;
 }
 
-function handle_command(user_id, channel_id, command, args) {
-  var user_username = get_username(user_id);
-  var channel_name = get_channel_name(channel_id);
-  var target_id = (channel_name) ? channel_id : user_id;
-  console.info(`user ${user_id} (${user_username}) in channel ${channel_id} (${channel_name}) issued command : ${command}, args : ${args}`);
-  switch (command) {
-    case 'tts':
-      send_text_message(target_id, args.join(' '), true);
-      break;
-    case 'lastfm':
-    case 'np':
-      lastfm(args[0])
-        .then(result => {
-          send_text_message(target_id, result);
-        });
-      break;
-    case 'xkcd':
-      xkcd(args[0])
-        .then(result => {
-          send_text_message(target_id, result);
-        });
-      break;
-    case 'videochat':
-    case 'screenshare':
-      appearin()
-        .then(result => {
-          send_text_message(target_id, result);
-        });
-      break;
-    case 'wolfram':
-    case 'wfa':
-      wolfram(args.join(' '))
-        .then(result => {
-          send_text_message(target_id, result);
-        });
-      break;
-    case 'help':
-    case 'commands':
-    default:
-      send_help_message(user_id);
-      break;
-  }
-}
 
 function handle_message(user_id, channel_id, message_id, message_contents) {
   if (!message_contents || user_id == bot.id) return;
@@ -120,16 +99,60 @@ function handle_message(user_id, channel_id, message_id, message_contents) {
   }
 
   if (COMMAND_PREFIXES.indexOf(messageSplit[0].charAt(0)) > -1) {
-    var command = messageSplit[0].substr(1, messageSplit[0].length);
+    var command = messageSplit[0].substr(1, messageSplit[0].length).trim();
     var args = messageSplit.slice(1, messageSplit.length);
     handle_command(user_id, channel_id, command, args);
   }
 }
 
+function handle_command(user_id, channel_id, command, args) {
+  var user_username = get_username(user_id);
+  var channel_name = get_channel_name(channel_id);
+  var target_id = (channel_name) ? channel_id : user_id;
+  console.info(`user ${user_id} (${user_username}) in channel ${channel_id} (${channel_name}) issued command : ${command}, args : ${args}`);
+
+  let found = false;
+  for (let [key, command_object] of Object.entries(CommandCache)) {
+    if (command_object.aliases.indexOf(command) > -1) {
+      found = true;
+      command_object.run(args).then(result => {
+        send_text_message(target_id, result);
+      }).catch(error => {
+        console.error(error);
+        send_text_message(target_id, error);
+      });
+    }
+  }
+  if (found) {
+    return;
+  }
+
+  switch (command) {
+    case 'tts':
+      send_text_message(target_id, args.join(' '), true);
+      break;
+    case 'reloadcommands':
+    case 'reloadcmd':
+    case 'rc':
+      reload_commands();
+      send_text_message(target_id, 'command cache refreshed');
+      break;
+    case 'help':
+    case 'commands':
+    case '?':
+    default:
+      send_help_message(target_id);
+      break;
+  }
+}
+
 function send_help_message(discord_id) {
-  var help = 'available commands:\n';
-  help += '\t\t!lastfm <username>\n';
-  help += '\t\t!xkcd [number]\n';
+  let help = '```\n';
+  for (let [key, command_object] of Object.entries(CommandCache)) {
+    console.log(command_object);
+    help += command_object.help + '\n';
+  }
+  help += '```\n';
   send_text_message(discord_id, help);
 }
 
@@ -144,3 +167,4 @@ function send_text_message(discord_id, message, text_to_speech) {
     }
   });
 }
+
