@@ -120,7 +120,7 @@ function handle_command(user_id, channel_id, message_id, command, args) {
       command_object.run(args).then(result => {
         send_text_message(target_id, result);
         // edit_message(target_id, message_id, result);
-        delete_message(target_id, message_id);
+        // delete_message(target_id, message_id);
       }).catch(error => {
         console.error(error);
         send_text_message(target_id, error);
