@@ -175,6 +175,17 @@ function send_text_message(discord_id, message, text_to_speech) {
   });
 }
 
+function upload_file(discord_id, filename) {
+  bot.uploadFile({
+    to : discord_id,
+    file : filename
+  }, (error, response) => {
+    if (error) {
+      console.error('error uploading file', error);
+    }
+  });
+}
+
 function simulate_typing(discord_id) {
   bot.simulateTyping(discord_id, (error, response) => {
     if (error) {
@@ -216,6 +227,7 @@ function clear(channel_id, before_message_id, limit) {
     delete_messages(channel_id, message_ids);
   });
 }
+
 
 function get_messages(channel_id, before_message_id, after_message_id, limit, callback) {
   bot.getMessages({
