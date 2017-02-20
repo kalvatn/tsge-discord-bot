@@ -1,9 +1,9 @@
 import Discord from 'discord.io';
-import Promise from 'bluebird';
 import path from 'path';
 import fs from 'fs';
 
-const request = Promise.promisify(require('request'));
+import logger from './util/logging';
+
 import URI from 'urijs';
 import nconf from 'nconf';
 
@@ -27,9 +27,9 @@ function reload_commands() {
       try {
         let command = require(command_path);
         CommandCache[command_name] = command;
-        console.info(`loaded command_name ${command_name}`);
+        logger.info(`loaded command_name ${command_name}`);
       } catch (error) {
-        console.error(`failed to load command_name ${command_name}`, error);
+        logger.error(`failed to load command_name ${command_name}`, error);
       }
     }
   });
@@ -37,11 +37,11 @@ function reload_commands() {
 
 reload_commands();
 // CommandCache['wolframalpha'].run([ '2+2' ]).then(result => {
-//   console.log(result);
+//   logger.debug(result);
 // });
 
 
-console.info('creating discord client');
+logger.info('creating discord client');
 var bot = new Discord.Client({
   token: nconf.get('bot:token'),
   autorun: nconf.get('bot:autorun')
@@ -49,20 +49,23 @@ var bot = new Discord.Client({
 
 
 bot.on('ready', (event) => {
-  console.info(`logged in as ${bot.id} (${bot.username})`);
+  logger.debug(event);
+  logger.info(`logged in as ${bot.id} (${bot.username})`);
 });
 
 bot.on('message', (user_username, user_id, channel_id, message, event) => {
+  logger.debug(event);
   var message_id = event.d.id;
   handle_message(user_id, channel_id, message_id, message);
 });
 
 bot.on('presence', (user_username, user_id, user_status, game, event) => {
+  logger.debug(event);
   //
 });
 
 bot.on('disconnect', function(error, error_code) {
-  console.info(`disconnected due to ${error} (${error_code}), reconnecting..`);
+  logger.info(`disconnected due to ${error} (${error_code}), reconnecting..`);
   bot.connect();
 });
 
@@ -79,7 +82,7 @@ function get_channel_name(channel_id) {
 }
 
 function extract_urls(message) {
-  urls = [];
+  let urls = [];
   URI.withinString(message, (url) => {
     urls.push(url);
   });
@@ -92,7 +95,7 @@ function handle_message(user_id, channel_id, message_id, message_contents) {
 
   var user_username = get_username(user_id);
   var channel_name = get_channel_name(channel_id);
-  console.info(`${user_username} in channel ${channel_name} sent message ${message_id} : ${message_contents}`);
+  logger.info(`${user_username} in channel ${channel_name} sent message ${message_id} : ${message_contents}`);
 
   var messageSplit = message_contents.split(' ');
   if (!messageSplit && messageSplit.length <= 0) {
@@ -110,7 +113,7 @@ function handle_command(user_id, channel_id, message_id, command, args) {
   var user_username = get_username(user_id);
   var channel_name = get_channel_name(channel_id);
   var target_id = (channel_name) ? channel_id : user_id;
-  console.info(`user ${user_id} (${user_username}) in channel ${channel_id} (${channel_name}) issued command : ${command}, args : ${args}`);
+  logger.info(`user ${user_id} (${user_username}) in channel ${channel_id} (${channel_name}) issued command : ${command}, args : ${args}`);
 
   let found = false;
   for (let [key, command_object] of Object.entries(CommandCache)) {
@@ -122,7 +125,7 @@ function handle_command(user_id, channel_id, message_id, command, args) {
         // edit_message(target_id, message_id, result);
         // delete_message(target_id, message_id);
       }).catch(error => {
-        console.error(error);
+        logger.error(error);
         send_text_message(target_id, error);
       });
     }
@@ -146,7 +149,6 @@ function handle_command(user_id, channel_id, message_id, command, args) {
     //   break;
     case 'help':
     case 'commands':
-    case '?':
     default:
       send_help_message(target_id);
       break;
@@ -156,7 +158,7 @@ function handle_command(user_id, channel_id, message_id, command, args) {
 function send_help_message(discord_id) {
   let help = '```\n';
   for (let [key, command_object] of Object.entries(CommandCache)) {
-    console.log(command_object);
+    logger.debug(command_object);
     help += command_object.help + '\n';
   }
   help += '```\n';
@@ -170,7 +172,7 @@ function send_text_message(discord_id, message, text_to_speech) {
     tts: (text_to_speech) ? true : false
   }, (error, response) => {
     if (error) {
-      console.error('error : ', error);
+      logger.error('error : ', error);
     }
   });
 }
@@ -181,7 +183,7 @@ function upload_file(discord_id, filename) {
     file : filename
   }, (error, response) => {
     if (error) {
-      console.error('error uploading file', error);
+      logger.error('error uploading file', error);
     }
   });
 }
@@ -189,8 +191,9 @@ function upload_file(discord_id, filename) {
 function simulate_typing(discord_id) {
   bot.simulateTyping(discord_id, (error, response) => {
     if (error) {
-      console.error('error simulating typing', error);
+      logger.error('error simulating typing', error);
     }
+    logger.debug(response);
   });
 }
 
@@ -201,15 +204,16 @@ function edit_message(discord_id, message_id, new_contents) {
     message : new_contents
   }, (error, response) => {
     if (error) {
-      console.log('error deleting message', message_id, error);
+      logger.debug('error deleting message', message_id, error);
     }
+    logger.debug(response);
   });
 }
 
 
 function clear(channel_id, before_message_id, limit) {
   if (!limit || limit < 2 || limit > 100) {
-    console.error('no limit or 2 < limit > 100', limit);
+    logger.error('no limit or 2 < limit > 100', limit);
     return;
   }
   get_messages(channel_id, before_message_id, null, limit, (messages) => {
@@ -219,7 +223,7 @@ function clear(channel_id, before_message_id, limit) {
     });
 
     if (message_ids.length < 2 || message_ids.length > 100) {
-      console.log('too few or too many messages to delete');
+      logger.debug('too few or too many messages to delete');
       return;
     }
     message_ids = message_ids.slice(0, limit);
@@ -237,7 +241,7 @@ function get_messages(channel_id, before_message_id, after_message_id, limit, ca
     limit : limit
   }, (error, messages) => {
     if (error) {
-      console.error('error getting messages', error);
+      logger.error('error getting messages', error);
     }
     callback(messages);
   });
@@ -249,20 +253,22 @@ function delete_message(channel_id, message_id) {
     messageID : message_id
   }, (error, response) => {
     if (error) {
-      console.log('error deleting message', message_id, error);
+      logger.debug('error deleting message', message_id, error);
     }
+    logger.debug(response);
   });
 }
 function delete_messages(channel_id, message_ids) {
 
-  console.log('deleting messages', message_ids);
+  logger.debug('deleting messages', message_ids);
   bot.deleteMessages({
     channelID : channel_id,
     messageIDs : message_ids
   }, (error, response) => {
     if (error) {
-      console.log('error deleting messages', message_ids, error);
+      logger.debug('error deleting messages', message_ids, error);
     }
+    logger.debug(response);
   });
 }
 

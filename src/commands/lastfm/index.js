@@ -8,7 +8,7 @@ const LASTFM_METHODS = {
   'nowplaying' : 'user.getRecentTracks',
   'topalbums'  : 'user.getTopAlbums',
   'toptracks'  : 'user.getTopTracks'
-}
+};
 
 function lastfm(username) {
   var method = 'nowplaying';
