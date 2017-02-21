@@ -1,5 +1,6 @@
 {
   "discord": {
+    "token" : "",
     "autorun" : true,
     "prefixes" : [ "!", "?", "--" ]
   },
