@@ -14,7 +14,11 @@ function shorten_url(url) {
 
 export const run = shorten_url;
 export default shorten_url;
-export const name = 'shortenurl';
-export const desc = 'shorten url using https://is.gd';
-export const aliases = [ 'shortenurl', 'isgd', 'urlshorten', 'us' ];
-export const help = '!shortenurl <url> - shortens url using https://is.gd';
+export const name = 'shorturl';
+export const desc = 'shorten url';
+export const aliases = [ 'urlshort', 'shorturl', 'shortenurl', 'urlshorten' ];
+export const params = {
+  'url' : 'the url to shorten'
+};
+export const delete_command_message = true;
+export const usage = '!shortenurl <url>';

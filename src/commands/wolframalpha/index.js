@@ -27,6 +27,9 @@ function wolfram(query) {
 
 export const run = wolfram;
 export const name = 'wolframalpha';
-export const desc = 'query https://www.wolframalpha.com';
-export const aliases = [ 'wolframalpha', 'wfa', 'wolf' ];
-export const help = '!wfa <query> - run wolframalpha query\nsee https://www.wolframalpha.com/examples/';
+export const desc = 'query WolframAlpha';
+export const aliases = [ 'wolframalpha', 'wfa', 'wolfa' ];
+export const params = {
+  'query' : 'query string (required), see https://www.wolframalpha.com/examples/'
+};
+export const usage = '!wfa <query>';

@@ -28,7 +28,9 @@ function lastfm(username) {
 
 export const run = lastfm;
 export const name = 'last.fm';
-export const desc = 'get information about users from https://last.fm';
-export const aliases = [ 'lastfm' ];
-export const help = '!lastfm <username> - shows most recently played track for <username> from https://last.fm';
-
+export const desc = 'get last played track for last.fm user';
+export const aliases = [ 'lastfm', 'np', 'lfm' ];
+export const params = {
+  'username' : 'last.fm username (required)'
+};
+export const usage = '!lastfm <username>';

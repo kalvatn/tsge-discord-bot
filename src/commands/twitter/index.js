@@ -32,6 +32,9 @@ function search(args) {
 
 export const run = search;
 export const name = 'twitter';
-export const desc = 'search https://twitter.com API';
+export const desc = 'get popular tweets';
 export const aliases = [ 'twitter', 'tw' ];
-export const help = '!twitter <query> - get tweets matching query';
+export const params = {
+  'query' : 'search string'
+};
+export const usage = '!twitter <query>';
