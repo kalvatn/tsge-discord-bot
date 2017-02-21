@@ -1,8 +1,8 @@
 {
   "discord": {
     "token" : "",
-    "autorun" : true,
-    "prefixes" : [ "!", "?", "--" ]
+    "autorun" : false,
+    "prefixes" : [ "!", "?" ]
   },
   "lastfm" : {
     "api_key" : ""
