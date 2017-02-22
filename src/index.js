@@ -131,6 +131,12 @@ function send_help_message(discord_id, command_name) {
             help += string.format('\t%s %50s\n', key, value);
           }
         }
+        if (command_object.examples) {
+          help += string.format('\nexamples\n');
+          command_object.examples.forEach(e => {
+            help += string.format('\n%s\n', e);
+          });
+        }
       }
     } else {
       help += string.format('%15s\t%s\n', command_object.aliases[0], command_object.desc);

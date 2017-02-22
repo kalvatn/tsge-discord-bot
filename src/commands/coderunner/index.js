@@ -7,20 +7,33 @@ import string from '../../util/string';
 let CACHED_LANGUAGE_LIST = [];
 glot.list_languages()
   .then(languages => {
-    // logger.debug(languages);
+    logger.debug(languages);
     CACHED_LANGUAGE_LIST = languages;
   });
+
+const LANGUAGE_ALIASES = {
+  'javascript' : [ 'js' ],
+  'python' : [ 'py' ]
+};
 
 function run_code_block(content) {
   return new Promise((resolve, reject) => {
     if (!content || content.length < 1) return reject(string.markdown(`usage : ${usage}\nexample : ${examples[0]}`));
     let language = content[0].split('\n')[0].substr(3).trim();
-    logger.debug('parsed language', language);
-    if (!CACHED_LANGUAGE_LIST.indexOf(language) < 0) {
+    let code = content.join(' ').substr(3 + language.length);
+    for (let [key, aliases] of Object.entries(LANGUAGE_ALIASES)) {
+      logger.debug(language, key, aliases);
+      if (aliases.indexOf(language) >= 0) {
+        language = key;
+        break;
+      }
+    }
+
+    logger.debug(string.format('parsed language "%s"', language));
+    if (CACHED_LANGUAGE_LIST.indexOf(language) < 0) {
       return reject(`${language} not supported by glot.io`);
     }
 
-    let code = content.join(' ').substr(3 + language.length);
     code = code.substr(0, code.length - 3).trim();
     glot.run_code(language, code)
       .then(response => {
@@ -42,11 +55,13 @@ function run_code_block(content) {
 export const run = run_code_block;
 export const name = 'coderunner';
 export const desc = 'run code';
-export const aliases = [ 'coderunner', 'glotio', 'run', 'code', 'compile' ];
+export const aliases = [ 'run', 'glotio', 'coderunner', 'code', 'compile' ];
 export const params = {
-  'code-block' : 'code to be run (required), must begin with three-backticks (\`) and the language name, see examples'
+  'code-block' : 'code to be run (required), must begin with \` \` \`<language>, see examples'
 };
-export const usage = '!coderunner <code-block>';
+
+export const usage = '!run <code-block>';
 export const examples = [
-  '!coderunner <three-backticks (\`)>python\nprint "hello world"\n<three-backticks (\`)>'
+  '``````\n```python\nprint "hello world"\n',
+  '``````\n```java\nclass Main {\n\tpublic static void main(String[] args) {\n\t\tSystem.out.println("Hello World");\n\t}\n}'
 ];

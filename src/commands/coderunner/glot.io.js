@@ -31,6 +31,7 @@ export function list_languages() {
         return resolve(languages);
       })
     .catch(error => {
+
       return reject(error);
     });
   });

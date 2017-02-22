@@ -1,12 +1,15 @@
 import URI from 'urijs';
 import { sprintf } from 'sprintf-js';
 
+export const TICKS_3 = '```';
+export const TICKS_4 = '````';
+
 export function surround(original, surround_with) {
   return surround_with + original + surround_with;
 }
 
 export function markdown(s) {
-  return surround(s, '```\n');
+  return surround(s, string.format('%s\n', TICKS_3));
 }
 
 
@@ -22,5 +25,7 @@ export default {
   surround : surround,
   markdown : markdown,
   format : sprintf,
-  extract_urls : extract_urls
+  extract_urls : extract_urls,
+  TICKS_3,
+  TICKS_4
 };
