@@ -2,7 +2,7 @@ import Promise from 'bluebird';
 import logger from '../../util/logging';
 import nconf from 'nconf';
 
-const request = Promise.promisifyAll(require('request'));
+import rp from 'request-promise';
 
 /*
  * https://glot.io/api
@@ -21,16 +21,14 @@ export function list_languages() {
       return resolve(LANGUAGE_CACHE);
     }
     logger.info('loading language list from glot.io api');
-    request.getAsync(`${API_RUN_URL}/languages`)
+    rp(`${API_RUN_URL}/languages`)
       .then(response => {
-        let data = JSON.parse(response.body);
+        let data = JSON.parse(response);
         let languages = [];
         data.forEach((l) => {
           languages.push(l.name);
         });
         return resolve(languages);
-        // return resolve(string.markdown(JSON.stringify(languages)));
-        // return resolve(string.markdown(languages.join('\n')));
       })
     .catch(error => {
       return reject(error);
@@ -39,49 +37,44 @@ export function list_languages() {
 }
 
 export function run_code(language, code) {
+  /**
+   * curl
+   * --request POST
+   * --header 'Authorization: Token bc1f1f17-b8ea-490d-852d-b7759a6a0c42'
+   * --header 'Content-type: application/json'
+   * --data '{"files": [{"name": "main.py", "content": "print(42)"}]}'
+   * --url 'https://run.glot.io/languages/python/latest'
+   */
   logger.debug(`language : \'${language}\', code : \'${code}\'`);
   return new Promise((resolve, reject) => {
-    /*
-     * curl
-     * --request POST
-     * --header 'Authorization: Token bc1f1f17-b8ea-490d-852d-b7759a6a0c42'
-     * --header 'Content-type: application/json'
-     * --data '{"files": [{"name": "main.py", "content": "print(42)"}]}'
-     * --url 'https://run.glot.io/languages/python/latest'
-     */
-    // let files = [{'name':'main.py','content':'print(42)'}];
-    request.postAsync('https://run.glot.io/languages/python/latest',
-      {
-        headers : {
-          'Authorization' : `Token ${API_TOKEN}`,
-          'content-type'  : 'application/json; charset=utf-8'
-          // 'content-length' : code.length
-        },
-        data : JSON.stringify({
-          files: [
-            {
-              name: 'main.py',
-              content: 'print(42)'
-            }
-          ]
-        })
-      }
-    )
-    .then(response => {
-      logger.debug(response.request);
-      logger.debug('response', response.body);
-      return resolve(response.body);
-    })
-    .catch(error => {
-      return reject(error);
-    });
+    let options = {
+      method: 'POST',
+      uri: `${API_RUN_URL}/languages/${language}/latest`,
+      headers : {
+        'Authorization' : `Token ${API_TOKEN}`,
+        'Content-type' : 'application/json'
+      },
+      body: {
+        files: [ { name : 'main', content : code } ]
+      },
+      json: true
+    };
 
+    rp(options)
+      .then((parsedBody) => {
+        logger.debug(parsedBody);
+        return resolve(parsedBody);
+      })
+      .catch((error) => {
+        logger.error(error);
+        return reject(error);
+      });
   });
 }
 
 export function create_snippet(content, opts) {
   return new Promise((resolve, reject) => {
-    request(`${API_SNIPPETS_URL}/snippets`, {
+    rp(`${API_SNIPPETS_URL}/snippets`, {
       language : opts.language,
       title : opts.title,
       public : opts.public,

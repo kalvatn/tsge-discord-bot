@@ -24,13 +24,21 @@ function run_code_block(content) {
     code = code.substr(0, code.length - 3).trim();
     glot.run_code(language, code)
       .then(response => {
-        return resolve(response);
+        let output = string.format('%s', response.stdout);
+        if (response.stderr) {
+          output += string.format('stderr:\n%s', response.stderr);
+        }
+        if (response.error) {
+          output += string.format('error:\n%s', response.error);
+        }
+        return resolve(string.markdown(output));
+      })
+      .catch(error => {
+        return resolve(error);
       });
-    return resolve(string.markdown(string.format('%s\n%s', language, code)));
   });
 }
 
-// export const run = glot.list_languages;
 export const run = run_code_block;
 export const name = 'coderunner';
 export const desc = 'run code';
