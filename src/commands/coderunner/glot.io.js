@@ -55,7 +55,7 @@ export function run_code(language, code) {
         'Content-type' : 'application/json'
       },
       body: {
-        files: [ { name : 'main', content : code } ]
+        files: [ { name : 'Main.java', content : code } ]
       },
       json: true
     };

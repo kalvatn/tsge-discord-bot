@@ -6,7 +6,7 @@ export function surround(original, surround_with) {
 }
 
 export function markdown(s) {
-  return surround(s, '```');
+  return surround(s, '```\n');
 }
 
 
