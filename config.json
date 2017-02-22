@@ -4,17 +4,22 @@
     "autorun" : false,
     "prefixes" : [ "!", "?" ]
   },
+
   "lastfm" : {
     "api_key" : ""
   },
+
   "wolfram" : {
     "app_id" : ""
   },
+
   "twitter" : {
     "consumer_key": "",
     "consumer_secret": "",
     "access_token_key": "",
     "access_token_secret": ""
 
+  "glot" : {
+    "token" : ""
   }
 }
