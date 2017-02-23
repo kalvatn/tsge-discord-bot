@@ -9,7 +9,7 @@ export function surround(original, surround_with) {
 }
 
 export function markdown(s) {
-  return surround(s, string.format('%s\n', TICKS_3));
+  return surround(s, sprintf('%s\n', TICKS_3));
 }
 
 
