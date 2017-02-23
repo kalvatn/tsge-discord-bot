@@ -7,7 +7,6 @@ import string from '../../util/string';
 let CACHED_LANGUAGE_LIST = [];
 glot.list_languages()
   .then(languages => {
-    logger.debug(languages);
     CACHED_LANGUAGE_LIST = languages;
   });
 
@@ -22,14 +21,12 @@ function run_code_block(content) {
     let language = content[0].split('\n')[0].substr(3).trim();
     let code = content.join(' ').substr(3 + language.length);
     for (let [key, aliases] of Object.entries(LANGUAGE_ALIASES)) {
-      logger.debug(language, key, aliases);
       if (aliases.indexOf(language) >= 0) {
         language = key;
         break;
       }
     }
 
-    logger.debug(string.format('parsed language "%s"', language));
     if (CACHED_LANGUAGE_LIST.indexOf(language) < 0) {
       return reject(`${language} not supported by glot.io`);
     }
@@ -39,10 +36,13 @@ function run_code_block(content) {
       .then(response => {
         let output = string.format('%s', response.stdout);
         if (response.stderr) {
-          output += string.format('stderr:\n%s', response.stderr);
+          output += string.format('\nstderr:\n%s', response.stderr);
         }
         if (response.error) {
-          output += string.format('error:\n%s', response.error);
+          output += string.format('\nerror:\n%s', response.error);
+        }
+        if (response.url) {
+          output += string.format('\n%s', response.url);
         }
         return resolve(string.markdown(output));
       })

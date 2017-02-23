@@ -12,6 +12,7 @@ import rp from 'request-promise';
 const API_TOKEN = nconf.get('glot:token');
 const API_RUN_URL = 'https://run.glot.io';
 const API_SNIPPETS_URL = 'https://snippets.glot.io';
+const SNIPPET_VIEW_URL = 'https://glot.io/snippets';
 
 let LANGUAGE_CACHE = [];
 
@@ -20,7 +21,7 @@ export function list_languages() {
     if (LANGUAGE_CACHE && LANGUAGE_CACHE.length > 0) {
       return resolve(LANGUAGE_CACHE);
     }
-    logger.info('loading language list from glot.io api');
+    // logger.info('loading language list from glot.io api');
     rp(`${API_RUN_URL}/languages`)
       .then(response => {
         let data = JSON.parse(response);
@@ -37,15 +38,7 @@ export function list_languages() {
 }
 
 export function run_code(language, code) {
-  /**
-   * curl
-   * --request POST
-   * --header 'Authorization: Token bc1f1f17-b8ea-490d-852d-b7759a6a0c42'
-   * --header 'Content-type: application/json'
-   * --data '{"files": [{"name": "main.py", "content": "print(42)"}]}'
-   * --url 'https://run.glot.io/languages/python/latest'
-   */
-  logger.debug(`language : \'${language}\', code : \'${code}\'`);
+  // logger.debug(`language : \'${language}\', code : \'${code}\'`);
   return new Promise((resolve, reject) => {
     let options = {
       method: 'POST',
@@ -61,9 +54,22 @@ export function run_code(language, code) {
     };
 
     rp(options)
-      .then((parsedBody) => {
-        logger.debug(parsedBody);
-        return resolve(parsedBody);
+      .then(response => {
+        // logger.debug(response);
+        let data = {
+          stdout : response.stdout,
+          stderr : response.stderr,
+          error  : response.error
+        };
+        create_snippet(language, code)
+          .then(response => {
+            data['url'] = `${SNIPPET_VIEW_URL}/${response.id}`;
+            // logger.debug(data);
+            return resolve(data);
+          })
+          .catch(error => {
+            return reject(error);
+          });
       })
       .catch((error) => {
         logger.error(error);
@@ -72,25 +78,30 @@ export function run_code(language, code) {
   });
 }
 
-export function create_snippet(content, opts) {
+export function create_snippet(language, code, title) {
   return new Promise((resolve, reject) => {
-    rp(`${API_SNIPPETS_URL}/snippets`, {
-      language : opts.language,
-      title : opts.title,
-      public : opts.public,
-      files : [
-        {
-          name : 'test',
-          content : content
-        }
-      ]
-    })
+    let options = {
+      method: 'POST',
+      uri: `${API_SNIPPETS_URL}/snippets`,
+      headers : {
+        'Authorization' : `Token ${API_TOKEN}`,
+        'Content-type' : 'application/json'
+      },
+      body: {
+        language : language,
+        public: false,
+        files: [ { content : code } ]
+      },
+      json: true
+    };
+    rp(options)
     .then(response => {
-      logger.debug(response);
-      return resolve('snippet created');
+      // logger.debug(response);
+      return resolve(response);
     })
     .catch(error => {
-      reject(error);
+      logger.error(error);
+      return reject(error);
     });
   });
 }
