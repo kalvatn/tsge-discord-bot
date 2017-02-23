@@ -62,6 +62,6 @@ export const params = {
 
 export const usage = '!run <code-block>';
 export const examples = [
-  '``````\n```python\nprint "hello world"\n',
+  '``````\n```python\nprint("hello world")\n',
   '``````\n```java\nclass Main {\n\tpublic static void main(String[] args) {\n\t\tSystem.out.println("Hello World");\n\t}\n}'
 ];
