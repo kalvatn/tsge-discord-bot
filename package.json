@@ -10,6 +10,7 @@
   "author": "jonterje.kalvatn@gmail.com",
   "license": "WTFPL",
   "dependencies": {
+    "babel-cli": "^6.23.0",
     "babel-plugin-transform-runtime": "^6.23.0",
     "babel-preset-es2017": "^6.22.0",
     "babel-preset-latest": "^6.22.0",
@@ -17,6 +18,7 @@
     "discord.io": "^2.4.2",
     "eslint": "^3.15.0",
     "forever": "^0.15.3",
+    "moment": "^2.17.1",
     "nconf": "^0.8.4",
     "nodemon": "^1.11.0",
     "ramda": "^0.23.0",
