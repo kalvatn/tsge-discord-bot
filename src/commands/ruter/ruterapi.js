@@ -129,20 +129,23 @@ export function search_stops(search) {
 }
 
 function search_and_propose(from, to, date) {
-  let stops = [];
-  stops.push(search_stops(from));
-  stops.push(search_stops(to));
-  return Promise.all(stops)
-    .then(found_stops => {
-      let from_stop = found_stops[0][0];
-      let to_stop = found_stops[1][0];
-      // logger.debug(string.format('%s -> %s', from_stop.name, to_stop.name));
-      return travel_proposals(from_stop.id, to_stop.id, date);
-    })
-    .catch(error => {
-      logger.error(error);
-      return [];
-    });
+  return new Promise((resolve, reject) => {
+    let stops = [];
+    stops.push(search_stops(from));
+    stops.push(search_stops(to));
+    return Promise.all(stops)
+      .then(found_stops => {
+        if (!found_stops[0][0] || !found_stops[1][0]) return reject('could not find one or more stops');
+        let from_stop = found_stops[0][0];
+        let to_stop = found_stops[1][0];
+        // logger.debug(string.format('%s -> %s', from_stop.name, to_stop.name));
+        return resolve(travel_proposals(from_stop.id, to_stop.id, date));
+      })
+      .catch(error => {
+        logger.error(error);
+        return resolve([]);
+      });
+  });
 }
 
 function travel_proposals(from, to, date) {
@@ -264,6 +267,9 @@ export function get_travels_formatted(from, to, date) {
                     formatted_table.push(string.format('  %4s %15s %s %s', departure_time, transport, from, to));
                   });
                   return resolve(formatted_table);
+                })
+                .catch(error => {
+                  return reject(error);
                 });
             });
           })
@@ -304,4 +310,13 @@ export default {
   search_and_propose,
   get_travels_formatted
 };
+
+// get_travels_formatted('rosenhoff', 'aker brygge')
+// get_travels_formatted('rosenhoff', 'drammen')
+//   .then(response => {
+//     logger.debug(response);
+//   })
+//   .catch(error => {
+//     logger.error(error);
+//   });
 

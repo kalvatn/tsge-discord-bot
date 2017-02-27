@@ -6,11 +6,12 @@ import string from '../../util/string';
 
 
 function ruter(args) {
-  let search = args.join(' ');
-  let [ from, to] = search.split('til');
-  from = from.replace('fra', '').trim();
-  to = to.replace('til', '').trim();
   return new Promise((resolve, reject) => {
+    if (args.indexOf('til') < 0 || args.indexOf('fra') < 0) return reject(string.markdown(usage));
+    let search = args.join(' ');
+    let [ from, to] = search.split('til');
+    from = from.replace('fra', '').trim();
+    to = to.replace('til', '').trim();
     ruterapi.get_travels_formatted(from, to)
     .then(result => {
       logger.debug(result);
