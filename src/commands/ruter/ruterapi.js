@@ -128,7 +128,7 @@ export function search_stops(search) {
   });
 }
 
-function search_and_travel(from, to, date) {
+function search_and_propose(from, to, date) {
   let stops = [];
   stops.push(search_stops(from));
   stops.push(search_stops(to));
@@ -147,6 +147,9 @@ function search_and_travel(from, to, date) {
 
 function travel_proposals(from, to, date) {
   // http://reisapi.ruter.no/Help/Api/GET-Travel-GetTravels_fromPlace_toPlace_isafter_time_changemargin_changepunish_walkingfactor_proposals_transporttypes_maxwalkingminutes_linenames_walkreluctance_waitAtBeginningFactor
+  if (!date) {
+    date = moment();
+  }
   return new Promise((resolve, reject) => {
     let time = date.format('DDMMYYYYHHmmss');
     // logger.debug(from, to, date, time);
@@ -223,6 +226,60 @@ function travel_proposals(from, to, date) {
   });
 }
 
+export function get_travels_formatted(from, to, date) {
+  return new Promise((resolve, reject) => {
+    get_all_stops()
+      .then(() => {
+        // search_and_propose('Grefsen', 'Sentrum Scene', date)
+        search_and_propose(from, to, date)
+          .then(response => {
+            response.forEach(proposal => {
+              let load_missing_stop_info = [];
+              let transport_list = [];
+              let formatted_table = [];
+              proposal.stages.forEach(stage => {
+                if (stage.transport_type_id === 0) {
+                  transport_list.push(stage.transport_type_name);
+                } else {
+                  transport_list.push(string.format('%s %s', stage.transport_type_name, stage.line_name));
+                }
+                load_missing_stop_info.push(get_stop_info(stage.from_stop_id));
+                load_missing_stop_info.push(get_stop_info(stage.to_stop_id));
+              });
+              Promise.all(load_missing_stop_info)
+                .then(() => {
+                  formatted_table.push(string.format('%s -> %s [ %s ] (%s)', format_time(proposal.departure_time), format_time(proposal.arrival_time), transport_list.join(' -> '), format_travel_time(proposal.travel_time)));
+                  proposal.stages.forEach(stage => {
+                    let travel_time = format_travel_time(stage.travel_time);
+                    let departure_time = format_time(stage.departure_time);
+                    let transport = '';
+                    let [from, to] = [CACHED_STOPS[stage.from_stop_id], CACHED_STOPS[stage.to_stop_id]];
+                    from = from ? 'fra ' + from.name : '';
+                    to   = to   ? 'til ' + to.name   : '';
+                    if (stage.transport_type_id === 0) {
+                      transport = string.format('%s (%s)', stage.transport_type_name, travel_time);
+                    } else {
+                      transport = string.format('%s %s (%s)', stage.transport_type_name, stage.line_name, travel_time);
+                    }
+                    formatted_table.push(string.format('  %4s %15s %s %s', departure_time, transport, from, to));
+                  });
+                  return resolve(formatted_table);
+                });
+            });
+          })
+          .catch(error => {
+            logger.debug(error);
+            return reject(error);
+          });
+      })
+      .catch(error => {
+        logger.error(error);
+        return reject(error);
+      });
+  });
+}
+
+
 function format_travel_time(travel_time) {
   let [hours, minutes, seconds] = travel_time.split(':').map((part) => {
     return parseInt(part);
@@ -244,54 +301,7 @@ export default {
   get_stop_info,
   search_stops,
   travel_proposals,
-  search_and_travel
+  search_and_propose,
+  get_travels_formatted
 };
-
-let date = moment();
-get_all_stops()
-  .then(() => {
-    // search_and_travel('Grefsen', 'Sentrum Scene', date)
-    search_and_travel('Rosenhoff', 'Aker Brygge', date.add(1, 'hour'))
-      .then(response => {
-        response.forEach(proposal => {
-
-          let load_missing_stop_info = [];
-          let transport_list = [];
-          proposal.stages.forEach(stage => {
-
-            if (stage.transport_type_id === 0) {
-              transport_list.push(stage.transport_type_name);
-            } else {
-              transport_list.push(string.format('%s %s', stage.transport_type_name, stage.line_name));
-            }
-            load_missing_stop_info.push(get_stop_info(stage.from_stop_id));
-            load_missing_stop_info.push(get_stop_info(stage.to_stop_id));
-          });
-          Promise.all(load_missing_stop_info)
-            .then(() => {
-              logger.debug(string.format('%s -> %s [ %s ] (%s)', format_time(proposal.departure_time), format_time(proposal.arrival_time), transport_list.join(' -> '), format_travel_time(proposal.travel_time)));
-              proposal.stages.forEach(stage => {
-                let travel_time = format_travel_time(stage.travel_time);
-                let departure_time = format_time(stage.departure_time);
-                let transport = '';
-                let [from, to] = [CACHED_STOPS[stage.from_stop_id], CACHED_STOPS[stage.to_stop_id]];
-                from = from ? 'fra ' + from.name : '';
-                to   = to   ? 'til ' + to.name   : '';
-                if (stage.transport_type_id === 0) {
-                  transport = string.format('%s (%s)', stage.transport_type_name, travel_time);
-                } else {
-                  transport = string.format('%s %s (%s)', stage.transport_type_name, stage.line_name, travel_time);
-                }
-                logger.debug(string.format('  %4s %15s %s %s', departure_time, transport, from, to));
-              });
-            });
-        });
-      })
-      .catch(error => {
-        logger.debug(error);
-      });
-  })
-  .catch(error => {
-    logger.error(error);
-  });
 
