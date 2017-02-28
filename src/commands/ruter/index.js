@@ -32,5 +32,5 @@ export const params = {
   'fra' : 'reis fra stopp',
   'til' : 'reis til stopp'
 };
-export const delete_command_message = true;
+// export const delete_command_message = true;
 export const usage = '!buss fra <stopp> til <stopp>';
