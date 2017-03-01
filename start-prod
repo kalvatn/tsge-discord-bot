@@ -12,4 +12,4 @@ forever stop "$FOREVER_UID"
 
 #sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 80 -j REDIRECT --to-port 8080
 # NODE_ENV=production forever start --uid "$FOREVER_UID" --minUptime 10000 --spinSleepTime 5000 -a -l forever.log -o out.log -e err.log index.js
-forever start --uid "$FOREVER_UID" --minUptime 10000 --spinSleepTime 5000 -a -l forever.log -o out.log -e err.log index.js
+forever start --uid "$FOREVER_UID" --minUptime 10000 --spinSleepTime 5000 -o out.log -e err.log index.js
