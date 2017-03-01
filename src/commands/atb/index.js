@@ -4,13 +4,11 @@ import rp from 'request-promise';
 import logger from '../../util/logging';
 import string from '../../util/string';
 
-
 export function atb(args) {
   return new Promise((resolve, reject) => {
     let search = args.join(' ');
     rp(`https://www.atb.no/xmlhttprequest.php?service=routeplannerOracle.getOracleAnswer&question=${search}`)
       .then(response => {
-        logger.debug(response);
         return resolve(string.markdown(response));
       })
       .catch(error => {

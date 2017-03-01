@@ -269,12 +269,13 @@ export function get_travels_formatted(from, to, date) {
                   return resolve(formatted_table);
                 })
                 .catch(error => {
+                  logger.error(error);
                   return reject(error);
                 });
             });
           })
           .catch(error => {
-            logger.debug(error);
+            logger.error(error);
             return reject(error);
           });
       })
