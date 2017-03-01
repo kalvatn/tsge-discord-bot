@@ -79,7 +79,16 @@ function handle_command(user_id, channel_id, message_id, command, args) {
 
       discord.simulate_typing(target_id);
       command_object.run(args).then(result => {
-        discord.send_text_message(target_id, result);
+        if (command_object.upload_files) {
+          let interval = 1500;
+          for (let i=0; i < result.length; i++) {
+            setTimeout(() => {
+              discord.upload_file(target_id, result[i]);
+            }, (i+1)*interval);
+          }
+        } else {
+          discord.send_text_message(target_id, result);
+        }
         if (command_object.delete_command_message) {
         // edit_message(target_id, message_id, result);
           discord.delete_message(target_id, message_id);

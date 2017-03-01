@@ -191,6 +191,7 @@ export default {
   client : client,
   connect : connect,
   send_text_message : send_text_message,
+  upload_file,
   delete_message : delete_message,
   simulate_typing : simulate_typing,
   get_username : get_username,
