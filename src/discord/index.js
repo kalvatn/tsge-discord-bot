@@ -83,14 +83,21 @@ export function get_channel_name(channel_id) {
 }
 
 export function send_text_message(discord_id, message, text_to_speech) {
-  client.sendMessage({
-    to: discord_id,
-    message: message,
-    tts: (text_to_speech) ? true : false
-  }, (error) => {
-    if (error) {
-      logger.error('error sending text message', message, error);
-    }
+  return new Promise((resolve, reject) => {
+    client.sendMessage({
+      to: discord_id,
+      message: message,
+      tts: (text_to_speech) ? true : false
+    }, (error, response) => {
+      if (error) {
+        logger.error('error sending text message', message, error);
+        return reject(error);
+      }
+      if (response) {
+        // logger.debug('sendMessage response', response);
+        return resolve(response);
+      }
+    });
   });
 }
 
@@ -191,6 +198,7 @@ export default {
   client : client,
   connect : connect,
   send_text_message : send_text_message,
+  edit_message,
   upload_file,
   delete_message : delete_message,
   simulate_typing : simulate_typing,

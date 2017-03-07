@@ -12,6 +12,7 @@ const COMMAND_PREFIXES = nconf.get('discord:prefixes');
 const COMMAND_ROOT = path.join(__dirname, 'commands');
 
 const CommandCache = {};
+const BotMessageCache = {};
 
 function reload_commands() {
   fs.readdirSync(COMMAND_ROOT).forEach((command_name) => {
@@ -63,10 +64,11 @@ function handle_message(user_id, channel_id, message_id, message_contents) {
 }
 
 function handle_command(user_id, channel_id, message_id, command, args) {
-  var user_username = discord.get_username(user_id);
-  var channel_name = discord.get_channel_name(channel_id);
+  // var user_username = discord.get_username(user_id);
+  // var channel_name = discord.get_channel_name(channel_id);
   var target_id = channel_id;
-  logger.info(`user ${user_id} (${user_username}) in channel ${channel_id} (${channel_name}) issued command : ${command}, args : ${args}`);
+
+  // logger.debug(`user ${user_id} (${user_username}) in channel ${channel_id} (${channel_name}) issued command : ${command}, args : ${args}`);
 
   let found = false;
   for (let command_object of Object.values(CommandCache)) {
@@ -87,7 +89,23 @@ function handle_command(user_id, channel_id, message_id, command, args) {
             }, (i+1)*interval);
           }
         } else {
-          discord.send_text_message(target_id, result);
+          if (command_object.edit_replies) {
+            let edit_message_id = BotMessageCache[command_object.name];
+            if (!edit_message_id) {
+              discord.send_text_message(target_id, result)
+                .then(response => {
+                  BotMessageCache[command_object.name] = response.id;
+                })
+                .catch(error => {
+                  logger.error('unable to send message', error);
+                });
+            } else {
+              logger.debug(`will edit contents of original reply ${message_id}`);
+              discord.edit_message(target_id, edit_message_id, result);
+            }
+          } else {
+            discord.send_text_message(target_id, result);
+          }
         }
         if (command_object.delete_command_message) {
         // edit_message(target_id, message_id, result);

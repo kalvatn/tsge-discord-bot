@@ -4,7 +4,7 @@ import rp from 'request-promise';
 import logger from '../../util/logging';
 import string from '../../util/string';
 
-const INITIAL_HANGMAN = [
+const GRAPHIC_INITIAL = [
   '  +-----+ ',
   '  |     | ',
   '  |     # ',
@@ -14,32 +14,39 @@ const INITIAL_HANGMAN = [
   '__+__     '
 ].join('\n');
 
-const SUCCESS = [
+const GRAPHIC_SUCCESS = [
   '  +-----+         ',
   '  |     |         ',
   '  |               yes! :D :D :D',
-  '  |        \\O \/   ',
+  '  |        \\O\/   ',
   '  |         |     ',
   '__+__      \/ \\   '
 ].join('\n');
 
 
-let parts = [ 'O', '\/', '\\', '|', '\/', '\\' ];
+const GRAPHIC_PARTS = [ 'O', '\/', '\\', '|', '\/', '\\' ];
 
-const LIVES = parts.length;
-let word = '';
-let attempts = 0;
-let wrong = new Set();
-let wrong_full_guesses = new Set();
-let correct = new Set();
-let hangman = INITIAL_HANGMAN;
+const LIVES = GRAPHIC_PARTS.length;
+let word;
+let attempts;
+let wrong_letters;
+let wrong_full_guesses;
+let correct_letters;
 let in_progress = false;
 
-function hm(args) {
+function hangman(args) {
   return new Promise((resolve, reject) => {
     let command = args[0];
+    if (!command) {
+      if (!in_progress) {
+        command = 'new';
+      } else {
+        return reject(usage);
+      }
+    }
+    command = command.trim().toLowerCase();
     let output = [];
-    switch (command.toLowerCase()) {
+    switch (command) {
       case 'new':
         if (in_progress) {
           output.push(show_solution());
@@ -69,11 +76,9 @@ function hm(args) {
 function new_game(new_word) {
   word = new_word;
   attempts = 0;
-  wrong = new Set();
+  wrong_letters = new Set();
   wrong_full_guesses = new Set();
-  correct = new Set();
-  hangman = INITIAL_HANGMAN;
-  hangman = update_hangman();
+  correct_letters = new Set();
   in_progress = true;
   logger.debug(`new game started, word : ${word}`);
 }
@@ -88,17 +93,17 @@ function guess(word_or_letter) {
   }
   if (word_or_letter.length == 1) {
     if (word.indexOf(word_or_letter) >= 0) {
-      correct.add(word_or_letter);
+      correct_letters.add(word_or_letter);
     } else {
-      if (!wrong.has(word_or_letter)) {
+      if (!wrong_letters.has(word_or_letter)) {
         attempts += 1;
-        wrong.add(word_or_letter);
+        wrong_letters.add(word_or_letter);
       }
     }
   } else {
     if (word_or_letter === word) {
       [...word_or_letter].forEach(l => {
-        correct.add(l);
+        correct_letters.add(l);
       });
     } else {
       if (!wrong_full_guesses.has(word_or_letter)) {
@@ -107,7 +112,6 @@ function guess(word_or_letter) {
       }
     }
   }
-  hangman = update_hangman();
 }
 
 
@@ -116,15 +120,15 @@ function build_output() {
   let output = [];
   if (masked === word) {
     in_progress = false;
-    output.push(SUCCESS);
+    output.push(GRAPHIC_SUCCESS);
     output.push(`\n${[...word].join(' ')}`);
   } else {
-    output.push(hangman);
-    if (wrong.size > 0) {
-      output.push(`wrong : [ ${[...wrong].sort().join(' ')} ]`);
+    output.push(update_hangman());
+    if (wrong_letters.size > 0) {
+      output.push(`wrong_letters : [ ${[...wrong_letters].sort().join(' ')} ]`);
     }
     if (wrong_full_guesses.size > 0) {
-      output.push(`wrong wrong_full_guesses : [ ${[...wrong_full_guesses].join(', ')} ]`);
+      output.push(`wrong_letters wrong_full_guesses : [ ${[...wrong_full_guesses].join(', ')} ]`);
     }
     if (attempts === LIVES) {
       output.push(`\n${[...word].join(' ')}`);
@@ -141,21 +145,21 @@ function show_solution() {
 }
 
 function update_hangman() {
-  let hangman = INITIAL_HANGMAN;
+  let graphic = GRAPHIC_INITIAL;
   for (let i=0; i <= attempts-1; i++) {
-    hangman = hangman.replace('#', parts[i]);
+    graphic = graphic.replace('#', GRAPHIC_PARTS[i]);
   }
-  while (hangman.indexOf('#') > -1) {
-    hangman = hangman.replace('#', ' ');
+  while (graphic.indexOf('#') > -1) {
+    graphic = graphic.replace('#', ' ');
   }
-  return hangman;
+  return graphic;
 }
 
 function mask_word() {
   let masked = [];
   for (let i=0; i < word.length; i++) {
     let letter = word.charAt(i);
-    if (correct.has(letter)) {
+    if (correct_letters.has(letter)) {
       masked[i] = letter;
     } else {
       masked[i] = '_';
@@ -164,11 +168,11 @@ function mask_word() {
   return masked.join('');
 }
 
-export default hm;
-export const run = hm;
+export default hangman;
+export const run = hangman;
 export const desc = 'hangman';
 export const aliases = [ 'hm', 'hangman' ];
 export const name = 'hangman';
-export const delete_command_message = false;
+export const delete_command_message = true;
 export const edit_replies = true;
-export const usage = '!shortenurl <url>';
+export const usage = '!hm <new|letter|wordguess>';
