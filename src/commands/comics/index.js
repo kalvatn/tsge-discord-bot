@@ -123,7 +123,6 @@ function get_comics_explosm() {
         get_image_nodes(html, xpath).forEach((n) => {
           let url = `http://${n.nodeValue.substr(2)}`;
           let name = 'explosm';
-          logger.debug(url, name);
           images[name] = url;
         });
         return resolve(images);
@@ -143,7 +142,6 @@ function get_comics_penny_arcade() {
         get_image_nodes(html, xpath).forEach((n) => {
           let url = n.nodeValue;
           let name = 'penny-arcade';
-          logger.debug(url, name);
           images[name] = url;
         });
         return resolve(images);
@@ -157,11 +155,10 @@ function get_comics_penny_arcade() {
 export const run = get_comics;
 export default get_comics;
 export const name = 'comics';
-export const desc = 'comics from dagbladet.no';
+export const desc = 'post latest comics';
 export const aliases = [ 'comics', 'dbcomics', 'tegneserier' ];
 export const params = {
 };
-// export const delete_command_message = true;
 export const usage = '!comics';
 export const upload_files = true;
 
