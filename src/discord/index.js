@@ -177,7 +177,9 @@ export function delete_message(channel_id, message_id) {
     if (error) {
       logger.debug('error deleting message', message_id, error);
     }
-    logger.debug(response);
+    if (response) {
+      logger.debug(response);
+    }
   });
 }
 

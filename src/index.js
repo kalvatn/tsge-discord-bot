@@ -13,6 +13,9 @@ const COMMAND_ROOT = path.join(__dirname, 'commands');
 
 const CommandCache = {};
 const BotMessageCache = {};
+const bot_managed_channels = new Set([
+  'hangman'
+]);
 
 function reload_commands() {
   fs.readdirSync(COMMAND_ROOT).forEach((command_name) => {
@@ -40,7 +43,7 @@ discord.connect();
 
 client.on('message', (user_username, user_id, channel_id, message, event) => {
   // logger.debug(event);
-  var message_id = event.d.id;
+  let message_id = event.d.id;
   try {
     handle_message(user_id, channel_id, message_id, message);
   } catch (error) {
@@ -48,27 +51,69 @@ client.on('message', (user_username, user_id, channel_id, message, event) => {
   }
 });
 
+
+
 function handle_message(user_id, channel_id, message_id, message_contents) {
   if (!message_contents || user_id == client.id) return;
 
-  var messageSplit = message_contents.split(' ');
+
+  let messageSplit = message_contents.split(' ');
   if (!messageSplit && messageSplit.length <= 0) {
     return;
   }
 
-  if (COMMAND_PREFIXES.indexOf(messageSplit[0].charAt(0)) > -1) {
-    var command = messageSplit[0].substr(1, messageSplit[0].length).trim();
-    var args = messageSplit.slice(1, messageSplit.length);
-    handle_command(user_id, channel_id, message_id, command, args);
+  let channel_name = discord.get_channel_name(channel_id);
+  if (bot_managed_channels.has(channel_name)) {
+    handle_special_channel_message(user_id, channel_id, message_id, message_contents);
+  } else {
+    if (COMMAND_PREFIXES.indexOf(messageSplit[0].charAt(0)) > -1) {
+      let command = messageSplit[0].substr(1, messageSplit[0].length).trim();
+      let args = messageSplit.slice(1, messageSplit.length);
+      handle_command(user_id, channel_id, message_id, command, args);
+    }
+  }
+}
+function handle_special_channel_message(user_id, channel_id, message_id, message_contents) {
+  let channel_name = discord.get_channel_name(channel_id);
+
+  switch (channel_name) {
+    case 'hangman':
+      discord.delete_message(channel_id, message_id);
+      CommandCache['hangman'].run([ message_contents ])
+        .then(responses => {
+          responses.forEach(response => {
+            if (response.is_new) {
+              discord.send_text_message(channel_id, response.text)
+                .then(response => {
+                  BotMessageCache['hangman'] = response.id;
+                });
+            } else {
+              if (BotMessageCache['hangman']) {
+                discord.edit_message(channel_id, BotMessageCache['hangman'], response.text);
+              } else {
+                discord.send_text_message(channel_id, response.text)
+                  .then(response => {
+                    BotMessageCache['hangman'] = response.id;
+                  });
+              }
+            }
+          });
+        })
+        .catch(error => {
+          discord.send_text_message(channel_id, error);
+        });
+      break;
+    default:
+      break;
   }
 }
 
 function handle_command(user_id, channel_id, message_id, command, args) {
-  // var user_username = discord.get_username(user_id);
-  // var channel_name = discord.get_channel_name(channel_id);
-  var target_id = channel_id;
+  let user_username = discord.get_username(user_id);
+  let channel_name = discord.get_channel_name(channel_id);
+  let target_id = channel_id;
 
-  // logger.debug(`user ${user_id} (${user_username}) in channel ${channel_id} (${channel_name}) issued command : ${command}, args : ${args}`);
+  logger.debug(`user ${user_id} (${user_username}) in channel ${channel_id} (${channel_name}) issued command : ${command}, args : ${args}`);
 
   let found = false;
   for (let command_object of Object.values(CommandCache)) {
@@ -100,7 +145,7 @@ function handle_command(user_id, channel_id, message_id, command, args) {
                   logger.error('unable to send message', error);
                 });
             } else {
-              logger.debug(`will edit contents of original reply ${message_id}`);
+              // logger.debug(`will edit contents of original reply ${message_id}`);
               discord.edit_message(target_id, edit_message_id, result);
             }
           } else {
