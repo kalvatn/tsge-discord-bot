@@ -1,7 +1,6 @@
 import Promise from 'bluebird';
 import rp from 'request-promise';
 
-import logger from '../../util/logging';
 import string from '../../util/string';
 
 const GRAPHIC_PARTS = [ 'O', '\/', '\\', '|', '\/', '\\' ];
@@ -69,7 +68,6 @@ class Game {
       throw 'game finished';
     }
     this.guess(word_or_letter);
-    logger.debug(this.printable());
   }
 
   guess(word_or_letter) {
@@ -133,6 +131,9 @@ class Game {
     }
     this.graphic = graphic;
   }
+  is_completed() {
+    return this.solved || this.attempts >= LIVES;
+  }
 }
 
 let game;
@@ -149,32 +150,41 @@ function hangman(args) {
     }
     command = command.trim().toLowerCase();
     let output = [];
+    let should_create_new_game = false;
     switch (command) {
       case 'new':
+        should_create_new_game = true;
         if (game) {
           game.abort();
-          output.push(game.printable());
+          output.push({ text : string.markdown(game.printable()), is_finished : true });
         }
-        random_word()
-          .then(result => {
-            game = Game(result.toLowerCase());
-            output.push(game.printable());
-            return resolve(string.markdown(output.join('\n')));
-          })
-          .catch(error => {
-            return reject(`error starting new game, could not generate random word : ${error}`);
-          });
         break;
       default:
         if (game) {
           game.guess(command.toLowerCase());
-          output.push(game.printable());
-        } else {
-          output.push('you need to start a new game before guessing');
+          output.push({ text : string.markdown(game.printable()), is_new : false });
         }
-        return resolve(string.markdown(output.join('\n')));
+        if (game.is_completed()) {
+          should_create_new_game = true;
+        }
+    }
+    if (should_create_new_game) {
+      random_word()
+        .then(result => {
+          game = new Game(result.toLowerCase());
+          output.push({ text : string.markdown(game.printable()), is_new : true });
+          return resolve(output);
+        })
+        .catch(error => {
+          return reject(`error starting new game, could not generate random word : ${error}`);
+        });
+    } else {
+      return resolve(output);
     }
   });
+}
+
+function new_game() {
 }
 
 function random_word() {
@@ -186,13 +196,6 @@ export const run = hangman;
 export const desc = 'hangman';
 export const aliases = [ 'hm', 'hangman' ];
 export const name = 'hangman';
-export const delete_command_message = true;
-export const edit_replies = true;
+// export const delete_command_message = true;
+// export const edit_replies = true;
 export const usage = '!hm <new|letter|wordguess>';
-
-
-game = new Game('hangman');
-logger.debug(game.printable());
-game.abort();
-game.guess_and_print('a');
-logger.debug(game.printable());
