@@ -2878,6 +2878,12 @@ wolfram-alpha:
     libxmljs "^0.18.0"
     request "^2.54.0"
 
+wordnet:
+  version "0.1.2"
+  resolved "https://registry.yarnpkg.com/wordnet/-/wordnet-0.1.2.tgz#560e43d28d0ea7f72d7f81ffa97b21e2aeeb3ae5"
+  dependencies:
+    async "~0.2.9"
+
 "wordwrap@>=0.0.1 <0.1.0", wordwrap@~0.0.2:
   version "0.0.3"
   resolved "https://registry.yarnpkg.com/wordwrap/-/wordwrap-0.0.3.tgz#a3d5da6cd5c0bc0008d37234bbaf1bed63059107"

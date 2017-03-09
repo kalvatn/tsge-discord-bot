@@ -1,5 +1,6 @@
 import Promise from 'bluebird';
-import rp from 'request-promise';
+// import rp from 'request-promise';
+import wordnet from 'wordnet';
 
 import string from '../../util/string';
 
@@ -35,9 +36,12 @@ const GRAPHIC_SUCCESS = [
   '__+__      \/ \\   '
 ].join('\n');
 
+const WORD_LIST = [];
+
 class Game {
-  constructor(word) {
+  constructor(word, hint) {
     this.word = word;
+    this.hint = hint;
     this.attempts = 0;
     this.word_masked = this.word.replace(/\w/g, '_');
     this.solved = false;
@@ -49,6 +53,7 @@ class Game {
 
   printable() {
     let output = [];
+    output.push(this.hint);
     output.push(this.graphic);
     output.push(`tried [ ${[...this.wrong_guesses].join(', ')} ] tries left : ${LIVES - this.attempts}`);
     output.push([...this.word_masked].join(' '));
@@ -80,6 +85,9 @@ class Game {
   }
 
   is_correct(word_or_letter) {
+    if (!word_or_letter) {
+      return false;
+    }
     if (this.word.indexOf(word_or_letter) > -1) {
       this.update_correct_letters([...word_or_letter]);
       return true;
@@ -140,19 +148,15 @@ let game;
 
 function hangman(args) {
   return new Promise((resolve, reject) => {
-    let command = args[0];
-    if (!command) {
-      if (!game) {
-        command = 'new';
-      } else {
-        return reject(usage);
-      }
-    }
+    let command = args.join(' ');
     command = command.trim().toLowerCase();
     let output = [];
     let should_create_new_game = false;
+    if (!command && !game) {
+      command = '!new';
+    }
     switch (command) {
-      case 'new':
+      case '!new':
         should_create_new_game = true;
         if (game) {
           game.abort();
@@ -171,7 +175,7 @@ function hangman(args) {
     if (should_create_new_game) {
       random_word()
         .then(result => {
-          game = new Game(result.toLowerCase());
+          game = new Game(result.word.toLowerCase(), result.hint);
           output.push({ text : string.markdown(game.printable()), is_new : true });
           return resolve(output);
         })
@@ -184,11 +188,45 @@ function hangman(args) {
   });
 }
 
-function new_game() {
+function build_word_list() {
+  return new Promise((resolve, reject) => {
+    if (WORD_LIST.length > 0) {
+      return resolve(WORD_LIST);
+    }
+    wordnet.list((error, list) => {
+      if (error) {
+        return reject(error);
+      }
+      list.forEach(e => {
+        if (/^[a-zA-Z]+$/.test(e) && e.length >= 5) {
+          WORD_LIST.push(e);
+        }
+      });
+      return resolve(WORD_LIST);
+    });
+  });
 }
 
 function random_word() {
-  return rp('http://www.setgetgo.com/randomword/get.php');
+  return new Promise((resolve, reject) => {
+    build_word_list()
+      .then(word_list => {
+        let word = word_list[Math.floor(Math.random() * word_list.length)];
+        wordnet.lookup(word, (error, definitions) => {
+          if (error) {
+            return reject(error);
+          }
+          // console.log(word, definitions[0].glossary);
+          // definitions.forEach(d => {
+          //   console.log(d);
+          //   console.log(d.meta.words);
+          //   console.log(d.meta.pointers);
+          // });
+          return resolve({word : word, hint : definitions[0].glossary});
+        });
+      });
+  });
+  // return rp('http://www.setgetgo.com/randomword/get.php');
 }
 
 export default hangman;
@@ -199,3 +237,5 @@ export const name = 'hangman';
 // export const delete_command_message = true;
 // export const edit_replies = true;
 export const usage = '!hm <new|letter|wordguess>';
+
+
