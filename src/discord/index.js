@@ -7,7 +7,7 @@ logger.debug('discord token ' + nconf.get('discord:token'));
 
 let CONNECTED = false;
 const RECONNECT_INTERVAL_MILLIS = 10000;
-const MAX_RETRIES = 3;
+const MAX_RETRIES = 10;
 let retry_count = 0;
 
 logger.info('creating discord client');
@@ -29,7 +29,7 @@ client.on('presence', (user_username, user_id, user_status, game, event) => {
 client.on('disconnect', function(error, error_code) {
   CONNECTED = false;
   if (error_code < 2000) {
-    reconnect(3000);
+    reconnect(RECONNECT_INTERVAL_MILLIS);
     return;
   }
   logger.info(`disconnected due to ${error} (${error_code})`);
@@ -54,7 +54,7 @@ export function connect() {
     } else {
       retry_count = 0;
     }
-  }, 1000);
+  }, RECONNECT_INTERVAL_MILLIS);
 }
 
 function reconnect(delay) {
