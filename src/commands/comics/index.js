@@ -18,7 +18,7 @@ mkdir(COMIC_STORAGE_ROOT);
 
 function mkdir(dir) {
   if (!fs.existsSync(dir)) {
-    logger.info(`creating directory ${dir}`);
+    // logger.debug(`creating directory ${dir}`);
     fs.mkdirSync(dir);
   }
 }
@@ -50,7 +50,7 @@ export function get_comics() {
         let downloads = [];
         results.forEach(r => {
           for (let [name, url] of Object.entries(r)) {
-            logger.debug(name, url);
+            // logger.debug(name, url);
             downloads.push(download_image(url, name, dir));
           }
         });
