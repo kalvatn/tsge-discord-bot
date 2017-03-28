@@ -90,6 +90,7 @@ function get_image_nodes(html, xpath_query) {
   let doc = new DOMParser().parseFromString(xhtml);
   let select = xpath.useNamespaces({'x': 'http://www.w3.org/1999/xhtml'});
   let nodes = select(xpath_query, doc);
+  // logger.debug(nodes);
   return nodes;
 }
 
@@ -98,14 +99,16 @@ function get_comics_dagbladet() {
     rp('http://www.dagbladet.no/tegneserier/')
       .then(html => {
         let images = {};
-        let xpath = '//x:img/@src';
-        get_image_nodes(html, xpath).forEach((n) => {
-          if (n.nodeValue.startsWith('serveconfig')) {
-            let url = `http://www.dagbladet.no/tegneserie/${n.nodeValue}`;
-            let name = url.substr(url.lastIndexOf('=') + 1, url.length).replace(/\W/,'_');
-            images[name] = url;
-          }
-        });
+        let xpath = '//x:a[@class = "strip-holder"]/@href|//x:a[@class = "strip-holder"]//x:img/@src';
+        let nodes = get_image_nodes(html, xpath);
+        for (let i=0; i<nodes.length; i+=2) {
+          let comic_name_link = nodes[i].nodeValue;
+          // logger.debug(comic_name_link);
+          let comic_url = nodes[i+1].nodeValue;
+          let name = comic_name_link.replace('http://www.dagbladet.no/tegneserie/','').replace('\/', '');
+          // logger.debug(name, comic_url);
+          images[name] = comic_url;
+        }
         return resolve(images);
       })
       .catch(error => {
