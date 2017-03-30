@@ -99,7 +99,7 @@ function get_comics_dagbladet() {
     rp('http://www.dagbladet.no/tegneserier/')
       .then(html => {
         let images = {};
-        let xpath = '//x:a[@class = "strip-holder"]/@href|//x:a[@class = "strip-holder"]//x:img/@src';
+        let xpath = '//x:a[@class = "strip-container"]/@href|//x:a[@class = "strip-container"]//x:img/@src';
         let nodes = get_image_nodes(html, xpath);
         for (let i=0; i<nodes.length; i+=2) {
           let comic_name_link = nodes[i].nodeValue;
